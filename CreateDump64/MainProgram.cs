@@ -8,8 +8,11 @@ namespace CreateDump64
 {
     public class MainProgram
     {
+        [STAThread]
         public static void Main(string[] args)
         {
+            var x = new MainWindow();
+            x.ShowDialog();
         }
     }
 }

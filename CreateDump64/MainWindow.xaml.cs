@@ -23,7 +23,7 @@ namespace CreateDump64
         public MainWindow()
         {
             InitializeComponent();
-            this.Visibility = Visibility.Hidden;
+//            this.Visibility = Visibility.Hidden;
         }
     }
 }
