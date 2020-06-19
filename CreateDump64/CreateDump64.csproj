@@ -36,7 +36,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>CreateDump64.MainProgram</StartupObject>
+    <StartupObject>CreateDump64.MainProgram64</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -58,7 +58,7 @@
     <Compile Include="..\CreateDump\MemoryDumpHelper.cs">
       <Link>MemoryDumpHelper.cs</Link>
     </Compile>
-    <Compile Include="MainProgram.cs" />
+    <Compile Include="MainProgram64.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">
