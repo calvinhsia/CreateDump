@@ -31,23 +31,12 @@ namespace CreateDump
             await Task.Yield();
             this.Top = 0;
             this.Left = 0;
-            this.Width = 100;
-            this.Height = 100;
+            this.Width = 600;
+            this.Height = 500;
             try
             {
-                // reg add hkcu\Software\Microsoft\VisualStudio\16.0_Remote\PerfWatson\InternalUser /v SatProcRuleId /d myruleid
-                //using (var hKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\VisualStudio\16.0_Remote\PerfWatson\InternalUser", writable: true))
-                //{
-                //    hKey.SetValue("SatProcRuleId", "Myruleid");
-
-                //    var x = hKey.GetValue("SatProcRuleId");
-                //}
-
-                //using (var hKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\VisualStudio", writable: true))
-                //{
-                //    hKey.DeleteSubKeyTree(@"16.0_Remote");
-                //}
-
+                // use 32 bit task manager to dump 64 bit process. Result is quick exit with file length ==0
+                Debug.Assert(IntPtr.Size == 4, "in 32 bit proc");
                 var procToDump = "Microsoft.ServiceHub.Controller";
                 //                procToDump = "perfwatson2";
                 var procs = Process.GetProcessesByName(procToDump);
@@ -55,7 +44,17 @@ namespace CreateDump
                 {
                     var proc = procs[0];
                     var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
-                    MemoryDumpHelper.CollectDump(proc, dumpFilename, fIncludeFullHeap: false);
+                    try
+                    {
+                        MemoryDumpHelper.CollectDump(proc, dumpFilename, fIncludeFullHeap: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        // PerfWatson is a 32 bit process, which can't get a dump of a 64 bit process
+                        // we don't know for sure that a particular process is 64 bit (on 32 bit Windows, it may run in 32 bit mode)
+                        // Capture a 64 bit dump on 32 bit windows
+                        Get64BitDump(proc, dumpFilename, fIncludeFullHeap: true);
+                    }
                 }
             }
             catch (Exception ex)
@@ -64,6 +63,29 @@ namespace CreateDump
             }
         }
 
+        private void Get64BitDump(Process proc, string dumpFilename, bool fIncludeFullHeap)
+        {
+            try
+            {
+                var tempExeFileName = Path.ChangeExtension(Path.GetTempFileName(), "exe");
+                File.WriteAllBytes(tempExeFileName, Properties.Resources.CreateDump64);
+                var procDump64 = Process.Start(tempExeFileName, $"{proc.Id} {dumpFilename}");
+                procDump64.Exited += (o, e) =>
+                {
+                    this.Content = "procexited";
+
+                };
+                while (!procDump64.HasExited)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                }
+                this.Content = "procexited";
+
+            }
+            catch (Exception)
+            {
+            }
+        }
     }
 
 
