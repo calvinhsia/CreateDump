@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,10 +19,48 @@ namespace CreateDump64
         {
             try
             {
-                var arg2 = Environment.CommandLine; // entire cmd line as string
-                var arg3 = Environment.GetCommandLineArgs(); // [0] = fullpath to cur exe
-                var procToDump = Process.GetProcessById(int.Parse(args[0]));
-                new MemoryDumpHelper().CollectDump(procToDump, args[1], fIncludeFullHeap: true);
+                Debug.Assert(IntPtr.Size == 8);
+                // "fullnameOfAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
+                // <fullpath>, MemoryDumpHelper, CollectDump,
+                var prog32 = string.Empty;
+                var typeName = string.Empty;
+                var methName = string.Empty;
+                var pidToDump = 0;
+                var dumpFileName = string.Empty;
+
+                if (args.Length == 0) // for testing
+                {
+                    var procNameToDump = "Microsoft.ServiceHub.Controller";
+                    //                procNameToDump = "perfwatson2";
+                    var procs = Process.GetProcessesByName(procNameToDump);
+                    var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
+                    args = new[] { @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe",
+                                    "MemoryDumpHelper",
+                                    "CollectDump",
+                                    procs[0].Id.ToString(),
+                                    dumpFilename };
+                }
+                if (args.Length == 5)
+                {
+                    prog32 = args[0];
+                    typeName = args[1];
+                    methName = args[2];
+                    pidToDump = int.Parse(args[3]);
+                    dumpFileName = args[4];
+                }
+
+
+                // if using linked source file
+                //                new MemoryDumpHelper().CollectDump(procToDump, args[1], fIncludeFullHeap: true);
+
+
+
+                var asmprog32 = Assembly.LoadFrom(prog32);
+                var typMemoryDumpHelper = asmprog32.GetExportedTypes().Where(t => t.Name == typeName).Single();
+                var methCollectDump = typMemoryDumpHelper.GetMethod(methName);
+                var memdumpHelper = Activator.CreateInstance(typMemoryDumpHelper);
+                methCollectDump.Invoke(memdumpHelper, new object[] { pidToDump, dumpFileName, true });
+
                 //var x = new Window();
                 //var sb = new StringBuilder();
                 //sb.AppendLine($"in 64 bit process  IntPtr.Size = {IntPtr.Size} {Process.GetCurrentProcess().ProcessName}");

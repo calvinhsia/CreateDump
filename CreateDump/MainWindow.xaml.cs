@@ -49,7 +49,7 @@ namespace CreateDump
                     var bitness = "32";
                     try
                     {
-                        new MemoryDumpHelper().CollectDump(proc, dumpFilename, fIncludeFullHeap: true);
+                        new MemoryDumpHelper().CollectDump(proc.Id, dumpFilename, fIncludeFullHeap: true);
                     }
                     catch (Exception ex) 
                     {
@@ -70,8 +70,9 @@ namespace CreateDump
                             Dumping Pid={proc.Id} {proc}
                             {exTxt}
                             {bitness} bit dump Size={new FileInfo(dumpFilename).Length:n0}  
+                            DumpFile={dumpFilename}  
                             Secs= {sw.Elapsed.TotalSeconds:n1}
-                            DumpFile={dumpFilename}  ";
+";
                 }
             }
             catch (Exception ex)
@@ -86,7 +87,8 @@ namespace CreateDump
             {
                 var tempExeFileName = Path.ChangeExtension(Path.GetTempFileName(), "exe");
                 File.WriteAllBytes(tempExeFileName, Properties.Resources.CreateDump64);
-                var procDump64 = Process.Start(tempExeFileName, $"{proc.Id} {dumpFilename}");
+                var args = $@"""{Process.GetCurrentProcess().MainModule.FileName}"" {nameof(MemoryDumpHelper)} {nameof(MemoryDumpHelper.CollectDump)}  {proc.Id} ""{dumpFilename}""";
+                var procDump64 = Process.Start(tempExeFileName, args );
                 procDump64.Exited += (o, e) =>
                 {
                     this.Content = "procexited";

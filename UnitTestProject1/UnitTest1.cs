@@ -27,7 +27,7 @@ namespace UnitTestProject1
                     var proc = procs[0];
                     var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
                     TestContext.WriteLine($"Creating dump of {procToDump}");
-                    MemoryDumpHelper.CollectDump(proc, dumpFilename, fIncludeFullHeap: false);
+                    new MemoryDumpHelper().CollectDump(proc.Id, dumpFilename, fIncludeFullHeap: false);
                     TestContext.WriteLine($"Dumped to {dumpFilename}");
                 }
             }
