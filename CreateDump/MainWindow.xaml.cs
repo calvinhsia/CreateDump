@@ -49,7 +49,7 @@ namespace CreateDump
                     var bitness = "32";
                     try
                     {
-                        MemoryDumpHelper.CollectDump(proc, dumpFilename, fIncludeFullHeap: true);
+                        new MemoryDumpHelper().CollectDump(proc, dumpFilename, fIncludeFullHeap: true);
                     }
                     catch (Exception ex) 
                     {

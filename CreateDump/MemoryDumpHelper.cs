@@ -5,12 +5,12 @@ using System.Security;
 
 namespace CreateDump
 {
-    public static class MemoryDumpHelper
+    public class MemoryDumpHelper
     {
         /// <summary>
         /// Collects a mini dump (optionally with full memory) for the given process and writes it to the given file path
         /// </summary>
-        public static void CollectDump(Process process, string dumpFilePath, bool fIncludeFullHeap)
+        public void CollectDump(Process process, string dumpFilePath, bool fIncludeFullHeap)
         {
             //LoggerBase.WriteInformation($"Dump collection started. FullHeap= {fIncludeFullHeap} {dumpFilePath}");
 
