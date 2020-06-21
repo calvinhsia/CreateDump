@@ -14,7 +14,7 @@ namespace CreateDump64
 {
     public class MainProgram64
     {
-        void test()
+        public void Test()
         {
             Console.WriteLine(IntPtr.Size.ToString());
             Console.ReadLine();

@@ -60,7 +60,7 @@ namespace CreateDump
                         // some exceptions are: {"Only part of a ReadProcessMemory or WriteProcessMemory request was completed. (Exception from HRESULT: 0x8007012B)"}
                         exception = ex;
                         bitness = "64";
-                        Get64BitDump(proc, dumpFilename, fIncludeFullHeap: true);
+                        Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
                     }
                     var exTxt = string.Empty;
                     if (exception != null)
@@ -82,7 +82,7 @@ namespace CreateDump
             }
         }
 
-        internal void Get64BitDump(Process proc, string dumpFilename, bool fIncludeFullHeap)
+        internal void Get64BitDumpFromExeInResource(Process proc, string dumpFilename, bool fIncludeFullHeap)
         {
             try
             {

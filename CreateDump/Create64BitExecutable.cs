@@ -9,7 +9,7 @@ namespace UnitTestProject1
         public Create64Bit()
         {
         }
-        public void Create64BitExe(string asmName)
+        public void Create64BitExeUsingEmit(string asmName)
         {
             var aName = new AssemblyName("MyTest64");
             //            var ab = AssemblyBuilder.DefineDynamicAssembly(aName,;

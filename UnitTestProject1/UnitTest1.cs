@@ -11,7 +11,7 @@ namespace UnitTestProject1
     {
         public TestContext TestContext { get; set; }
         [TestMethod]
-        public void TestGenerate64BitDump()
+        public void TestGenerate64BitDumpFromExeInResource()
         {
             var procToDump = "Microsoft.ServiceHub.Controller";
             //                procToDump = "perfwatson2";
@@ -19,7 +19,7 @@ namespace UnitTestProject1
             var proc = Process.GetProcessesByName(procToDump)[0];
             TestContext.WriteLine($"Dumping {procToDump} {proc}");
             var ox = new MainWindow();
-            ox.Get64BitDump(proc, dumpFilename, fIncludeFullHeap: true);
+            ox.Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
             Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
             var dumpSize = new FileInfo(dumpFilename).Length;
             TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");
@@ -28,12 +28,12 @@ namespace UnitTestProject1
         }
 
         [TestMethod]
-        public void TestCreate64BitExecutable()
+        public void TestCreate64BitExecutableUsingEmit()
         {
             var oBuilder = new Create64Bit();
             //            oBuilder.CreateAssembly();
             var asmName = @"c:\users\calvinh\t.asm";
-            oBuilder.Create64BitExe(asmName);
+            oBuilder.Create64BitExeUsingEmit(asmName);
         }
     }
 }
