@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Threading;
@@ -81,18 +82,17 @@ namespace CreateDump
             }
         }
 
-        private void Get64BitDump(Process proc, string dumpFilename, bool fIncludeFullHeap)
+        internal void Get64BitDump(Process proc, string dumpFilename, bool fIncludeFullHeap)
         {
             try
             {
                 var tempExeFileName = Path.ChangeExtension(Path.GetTempFileName(), "exe");
                 File.WriteAllBytes(tempExeFileName, Properties.Resources.CreateDump64);
-                var args = $@"""{Process.GetCurrentProcess().MainModule.FileName}"" {nameof(MemoryDumpHelper)} {nameof(MemoryDumpHelper.CollectDump)}  {proc.Id} ""{dumpFilename}""";
+                var args = $@"""{typeof(MainWindow).Assembly.Location}"" {nameof(MemoryDumpHelper)} {nameof(MemoryDumpHelper.CollectDump)}  {proc.Id} ""{dumpFilename}""";
                 var procDump64 = Process.Start(tempExeFileName, args );
                 procDump64.Exited += (o, e) =>
                 {
                     this.Content = "procexited";
-
                 };
                 while (!procDump64.HasExited)
                 {
@@ -103,7 +103,6 @@ namespace CreateDump
             catch (Exception)
             {
             }
-
         }
     }
 

@@ -19,7 +19,7 @@ namespace CreateDump
 
             try
             {
-                hFile = NativeMethods.CreateFile(
+                hFile = NativeMethods.CreateFile( // will overwrite file if exists.
                         lpFileName: dumpFilePath,
                         dwDesiredAccess: NativeMethods.EFileAccess.GenericWrite,
                         dwShareMode: NativeMethods.EFileShare.None,

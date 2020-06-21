@@ -1,41 +1,39 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using CreateDump;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 namespace UnitTestProject1
 {
     [TestClass]
     public class UnitTest1
     {
         public TestContext TestContext { get; set; }
+        [TestMethod]
+        public void TestGenerate64BitDump()
+        {
+            var procToDump = "Microsoft.ServiceHub.Controller";
+            //                procToDump = "perfwatson2";
+            var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
+            var proc = Process.GetProcessesByName(procToDump)[0];
+            TestContext.WriteLine($"Dumping {procToDump} {proc}");
+            var ox = new MainWindow();
+            ox.Get64BitDump(proc, dumpFilename, fIncludeFullHeap: true);
+            Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
+            var dumpSize = new FileInfo(dumpFilename).Length;
+            TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");
+            Assert.IsTrue(dumpSize > 100000000, $"Dump file size = {dumpSize:n0}");
+            File.Delete(dumpFilename);
+        }
 
         [TestMethod]
-        public void TestMethod1()
+        public void TestCreate64BitExecutable()
         {
-            Assert.AreEqual(IntPtr.Size, 8);
-            TestContext.WriteLine(Process.GetCurrentProcess().Id.ToString() + " " + Process.GetCurrentProcess().MainModule.FileName);
-            try
-            {
-
-                var procToDump = "Microsoft.ServiceHub.Controller";
-                //                procToDump = "perfwatson2";
-                var procs = Process.GetProcessesByName(procToDump);
-                if (procs.Length > 0)
-                {
-                    var proc = procs[0];
-                    var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
-                    TestContext.WriteLine($"Creating dump of {procToDump}");
-                    new MemoryDumpHelper().CollectDump(proc.Id, dumpFilename, fIncludeFullHeap: false);
-                    TestContext.WriteLine($"Dumped to {dumpFilename}");
-                }
-            }
-            catch (Exception ex)
-            {
-                TestContext.WriteLine(ex.ToString());
-            }
-            Thread.Sleep(TimeSpan.FromSeconds(10));
+            var oBuilder = new Create64Bit();
+            //            oBuilder.CreateAssembly();
+            var asmName = @"c:\users\calvinh\t.asm";
+            oBuilder.Create64BitExe(asmName);
         }
     }
 }

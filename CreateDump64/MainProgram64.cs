@@ -14,8 +14,38 @@ namespace CreateDump64
 {
     public class MainProgram64
     {
+        void test()
+        {
+            Console.WriteLine(IntPtr.Size.ToString());
+            Console.ReadLine();
+
+        }
+
+        public static void Main(string[] args) // simple version easy to generate via Reflection.Emit
+        {
+            // "C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" MemoryDumpHelper CollectDump, 18844, "c:\users\calvinh\t.dmp"
+            // "fullnameOfAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
+            try
+            {
+                var asmprog32 = Assembly.LoadFrom(args[0]);
+                foreach (var type in asmprog32.GetExportedTypes())
+                {
+                    if (type.Name == args[1])
+                    {
+                        var methCollectDump = type.GetMethod(args[2]);
+                        var memdumpHelper = Activator.CreateInstance(type);
+                        methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                        break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         [STAThread]
-        public static void Main(string[] args) // [0] is 1st arg. array with 0 elems if no args
+        public static void MainOrig(string[] args) // [0] is 1st arg. array with 0 elems if no args
         {
             try
             {
