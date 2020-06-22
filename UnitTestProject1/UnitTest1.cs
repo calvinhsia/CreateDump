@@ -33,7 +33,7 @@ namespace UnitTestProject1
             var oBuilder = new Create64Bit();
             //            oBuilder.CreateAssembly();
             var asmName = @"c:\users\calvinh\t.asm";
-            oBuilder.Create64BitExeUsingEmit(asmName);
+            oBuilder.Create64BitExeUsingEmit();
         }
     }
 }

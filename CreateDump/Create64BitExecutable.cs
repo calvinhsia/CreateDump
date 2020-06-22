@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 
 namespace UnitTestProject1
 {
@@ -9,7 +10,170 @@ namespace UnitTestProject1
         public Create64Bit()
         {
         }
-        public void Create64BitExeUsingEmit(string asmName)
+
+        public void Create64BitExeUsingEmit()
+        {
+            var aName = new AssemblyName("MyTest64");
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save);
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType("MyType", TypeAttributes.Public);
+            var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
+            var methIL = methodBuilder.GetILGenerator();
+
+            methIL.BeginExceptionBlock();
+            methIL.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+            methIL.DeclareLocal(typeof(StringBuilder));
+            methIL.Emit(OpCodes.Stloc_0);
+            methIL.Emit(OpCodes.Ldloc_0);
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 0);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 1);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
+            methIL.Emit(OpCodes.Pop);
+
+            methIL.BeginCatchBlock(typeof(Exception));
+            methIL.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+            //            methIL.Emit(OpCodes.Ldstr, "Exception occurred");
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+            methIL.EndExceptionBlock();
+            methIL.Emit(OpCodes.Ret);
+
+            typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.ConsoleApplication);
+            assemblyBuilder.Save(aName.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+
+        }
+
+        public void Create64BitExeUsingEmitAdd2ArgsWithTryCatch()
+        {
+            var aName = new AssemblyName("MyTest64");
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save);
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType("MyType", TypeAttributes.Public);
+            var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
+            var methIL = methodBuilder.GetILGenerator();
+
+            methIL.BeginExceptionBlock();
+            methIL.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+            methIL.DeclareLocal(typeof(StringBuilder));
+            methIL.Emit(OpCodes.Stloc_0);
+            methIL.Emit(OpCodes.Ldloc_0);
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 0);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 1);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
+            methIL.Emit(OpCodes.Pop);
+
+            methIL.BeginCatchBlock(typeof(Exception));
+            methIL.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+//            methIL.Emit(OpCodes.Ldstr, "Exception occurred");
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+            methIL.EndExceptionBlock();
+            methIL.Emit(OpCodes.Ret);
+
+            typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.ConsoleApplication);
+            assemblyBuilder.Save(aName.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+
+        }
+
+
+        public void Create64BitExeUsingEmitAdd2ArgsWithTryCatch()
+        {
+            var aName = new AssemblyName("MyTest64");
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save);
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType("MyType", TypeAttributes.Public);
+            var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
+            var methIL = methodBuilder.GetILGenerator();
+
+            methIL.BeginExceptionBlock();
+            methIL.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+            methIL.DeclareLocal(typeof(StringBuilder));
+            methIL.Emit(OpCodes.Stloc_0);
+            methIL.Emit(OpCodes.Ldloc_0);
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 0);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 1);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+
+            methIL.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
+            methIL.Emit(OpCodes.Pop);
+
+            methIL.BeginCatchBlock(typeof(Exception));
+            methIL.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+            //            methIL.Emit(OpCodes.Ldstr, "Exception occurred");
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+            methIL.EndExceptionBlock();
+            methIL.Emit(OpCodes.Ret);
+
+            typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.ConsoleApplication);
+            assemblyBuilder.Save(aName.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+
+        }
+
+        public void Create64BitExeUsingEmitss()
+        {
+            var aName = new AssemblyName("MyTest64");
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save);
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType("MyType", TypeAttributes.Public);
+            var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
+            var methIL = methodBuilder.GetILGenerator();
+            //methIL.BeginExceptionBlock();
+            //methIL.EndExceptionBlock();
+            methIL.Emit(OpCodes.Ldarg_0);
+            methIL.Emit(OpCodes.Ldc_I4, 0);
+            methIL.Emit(OpCodes.Ldelem_Ref);
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+
+            methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
+            methIL.Emit(OpCodes.Pop);
+            methIL.Emit(OpCodes.Ret);
+
+            typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.ConsoleApplication);
+            assemblyBuilder.Save(aName.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+        }
+        public void Create64BitConsoleExeUsingEmit()
         {
             var aName = new AssemblyName("MyTest64");
             //            var ab = AssemblyBuilder.DefineDynamicAssembly(aName,;
@@ -32,7 +196,7 @@ namespace UnitTestProject1
             methIL.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
             methIL.Emit(OpCodes.Pop);
             methIL.Emit(OpCodes.Ret);
-            var type = typeBuilder.CreateType();
+            typeBuilder.CreateType();
             assemblyBuilder.SetEntryPoint(methodBuilder,PEFileKinds.ConsoleApplication);
             assemblyBuilder.Save(aName.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
             //            assemblyBuilder.Save(aName.Name + ".dll");//, PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);

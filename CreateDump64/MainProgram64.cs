@@ -14,12 +14,15 @@ namespace CreateDump64
 {
     public class MainProgram64
     {
-        public void Test()
+        public void Test(string[] args)
         {
+            var sb22 = new StringBuilder("asdf");
             var sb = new StringBuilder();
+            sb.AppendLine(args[0]);
             sb.AppendLine($"asdf{564}");
 
-            File.WriteAllText("filename", sb.ToString());
+            File.WriteAllText(args[0], sb.ToString());
+
             Console.WriteLine(IntPtr.Size.ToString());
             Console.ReadLine();
 
@@ -52,37 +55,31 @@ ILONLY    : 1
 Signed    : 0
 #endif
 
-
         public static void Main(string[] args) // simple version easy to generate via Reflection.Emit
+        {
+            new MainProgram64(args);
+        }
+
+        readonly string targ32bitDll;// = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\Microsoft.VisualStudio.PerfWatson.dll";
+        MainProgram64 (string[] args) // simple version easy to generate via Reflection.Emit
         {
             // "fullnameOf32BitAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
             // "C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" MemoryDumpHelper CollectDump, 18844, "c:\users\calvinh\t.dmp"
             // "C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\PerfWatson2.exe" MemoryDumpHelper CollectDump, 22520, "c:\users\calvinh\t.dmp"
             try
             {
-                var targ32bitDll = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\Microsoft.VisualStudio.PerfWatson.dll";
-                args = new[] {
-                    targ32bitDll,
-                    "MemoryDumpHelper",
-                    "CollectDump",
-                    "13952",
-                    @"c:\users\calvinh\t.dmp"
-                };
-                AppDomain.CurrentDomain.AssemblyResolve += (o, e) =>
-                  {
-                      Assembly asm = null;
-                      var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-                      var requestName = e.Name.Substring(0, e.Name.IndexOf(","));
-                      if (requestName == "Microsoft.VisualStudio.Telemetry")
-                      {
-                          asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Microsoft.VisualStudio.Telemetry.dll"));
-                      }
-                      else if (requestName == "Newtonsoft.Json")
-                      {
-                          asm = Assembly.LoadFrom(Path.Combine(privAsmDir,@"Newtonsoft.Json.dll"));
-                      }
-                      return asm;
-                  };
+                //if (args.Length < 5)
+                //{
+                //    args = new[] {
+                //        targ32bitDll,
+                //        "MemoryDumpHelper",
+                //        "CollectDump",
+                //        "13952",
+                //        @"c:\users\calvinh\t.dmp"
+                //    };
+                //}
+                targ32bitDll = args[0];
+                AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
                 //Environment.CurrentDirectory = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE";
                 var asmprog32 = Assembly.LoadFrom(args[0]);
                 //                var typs = asmprog32.DefinedTypes;
@@ -100,6 +97,22 @@ Signed    : 0
             catch (Exception)
             {
             }
+        }
+
+        private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            Assembly asm = null;
+            var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+            var requestName = args.Name.Substring(0, args.Name.IndexOf(","));
+            if (requestName == "Microsoft.VisualStudio.Telemetry")
+            {
+                asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Microsoft.VisualStudio.Telemetry.dll"));
+            }
+            else if (requestName == "Newtonsoft.Json")
+            {
+                asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Newtonsoft.Json.dll"));
+            }
+            return asm;
         }
 
         [STAThread]
