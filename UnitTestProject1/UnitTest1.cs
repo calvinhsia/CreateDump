@@ -46,7 +46,7 @@ namespace UnitTestProject1
                 Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
                 Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
                 var txtResults = File.ReadAllText(tempOutputFile);
-                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."));
+                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."),"Content not as expected");
                 TestContext.WriteLine(txtResults);
             }
             else

@@ -19,7 +19,9 @@ namespace CreateDump64
 //            var sb22 = new StringBuilder("asdf");
             var sb = new StringBuilder();
             var dt = DateTime.Now.ToString();
+            sb.AppendLine(dt);
             sb.AppendLine(args[0]);
+            sb.AppendLine("ssss");
             sb.AppendLine($"asdf{564}");
 
             File.WriteAllText(args[0], sb.ToString());
