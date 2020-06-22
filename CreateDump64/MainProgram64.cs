@@ -16,18 +16,76 @@ namespace CreateDump64
     {
         public void Test()
         {
+            var sb = new StringBuilder();
+            sb.AppendLine($"asdf{564}");
+
+            File.WriteAllText("filename", sb.ToString());
             Console.WriteLine(IntPtr.Size.ToString());
             Console.ReadLine();
 
         }
+#if false
+C:\VS\src\vscommon\testtools\PerfWatson2>corflags "C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\PerfWatson2.exe"
+Microsoft (R) .NET Framework CorFlags Conversion Tool.  Version  4.6.1055.0
+Copyright (c) Microsoft Corporation.  All rights reserved.
+
+Version   : v4.0.30319
+CLR Header: 2.5
+PE        : PE32
+CorFlags  : 0x3
+ILONLY    : 1
+32BITREQ  : 1
+32BITPREF : 0
+Signed    : 1
+
+C:\VS\src\vscommon\testtools\PerfWatson2>corflags "C:\Users\calvinh\source\repos\calvinhsia\CreateDump\CreateDump\bin\Debug\CreateDump.exe"
+Microsoft (R) .NET Framework CorFlags Conversion Tool.  Version  4.6.1055.0
+Copyright (c) Microsoft Corporation.  All rights reserved.
+
+Version   : v4.0.30319
+CLR Header: 2.5
+PE        : PE32
+CorFlags  : 0x20003
+ILONLY    : 1
+32BITREQ  : 0
+32BITPREF : 1
+Signed    : 0
+#endif
+
 
         public static void Main(string[] args) // simple version easy to generate via Reflection.Emit
         {
+            // "fullnameOf32BitAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
             // "C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" MemoryDumpHelper CollectDump, 18844, "c:\users\calvinh\t.dmp"
-            // "fullnameOfAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
+            // "C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\PerfWatson2.exe" MemoryDumpHelper CollectDump, 22520, "c:\users\calvinh\t.dmp"
             try
             {
+                var targ32bitDll = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\Microsoft.VisualStudio.PerfWatson.dll";
+                args = new[] {
+                    targ32bitDll,
+                    "MemoryDumpHelper",
+                    "CollectDump",
+                    "13952",
+                    @"c:\users\calvinh\t.dmp"
+                };
+                AppDomain.CurrentDomain.AssemblyResolve += (o, e) =>
+                  {
+                      Assembly asm = null;
+                      var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+                      var requestName = e.Name.Substring(0, e.Name.IndexOf(","));
+                      if (requestName == "Microsoft.VisualStudio.Telemetry")
+                      {
+                          asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Microsoft.VisualStudio.Telemetry.dll"));
+                      }
+                      else if (requestName == "Newtonsoft.Json")
+                      {
+                          asm = Assembly.LoadFrom(Path.Combine(privAsmDir,@"Newtonsoft.Json.dll"));
+                      }
+                      return asm;
+                  };
+                //Environment.CurrentDirectory = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE";
                 var asmprog32 = Assembly.LoadFrom(args[0]);
+                //                var typs = asmprog32.DefinedTypes;
                 foreach (var type in asmprog32.GetExportedTypes())
                 {
                     if (type.Name == args[1])
@@ -45,7 +103,7 @@ namespace CreateDump64
         }
 
         [STAThread]
-        public static void MainOrig(string[] args) // [0] is 1st arg. array with 0 elems if no args
+        public static void Mainss(string[] args) // [0] is 1st arg. array with 0 elems if no args
         {
             try
             {
@@ -64,7 +122,11 @@ namespace CreateDump64
                     //                procNameToDump = "perfwatson2";
                     var procs = Process.GetProcessesByName(procNameToDump);
                     var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
-                    args = new[] { @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe",
+                    Environment.CurrentDirectory = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE";
+                    var src32exe = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\PerfWatson2.exe";
+                    src32exe = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\Microsoft.VisualStudio.PerfWatson.dll";
+                    //                    src32exe = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
+                    args = new[] { src32exe ,
                                     "MemoryDumpHelper",
                                     "CollectDump",
                                     procs[0].Id.ToString(),
