@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
@@ -21,9 +22,10 @@ namespace UnitTestProject1
             var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
             var il = methodBuilder.GetILGenerator();
 
+            il.DeclareLocal(typeof(StringBuilder));
+            il.DeclareLocal(typeof(string));
             il.BeginExceptionBlock();
             il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
-            il.DeclareLocal(typeof(StringBuilder));
             il.Emit(OpCodes.Stloc_0);
             il.Emit(OpCodes.Ldloc_0);
 
@@ -45,15 +47,24 @@ namespace UnitTestProject1
             il.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
             il.Emit(OpCodes.Pop);
 
-            il.BeginCatchBlock(typeof(Exception));
-            il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
-            //            methIL.Emit(OpCodes.Ldstr, "Exception occurred");
-            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
+            il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
+            {
+                il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+                //il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                //il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                il.Emit(OpCodes.Stloc_1);
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldc_I4, 0);
+                il.Emit(OpCodes.Ldelem_Ref);
+                il.Emit(OpCodes.Ldloc_1);
+                //            methIL.Emit(OpCodes.Ldstr, "Exception occurred");
+                il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+            }
             il.EndExceptionBlock();
             il.Emit(OpCodes.Ret);
 
             typeBuilder.CreateType();
-            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.ConsoleApplication);
+            assemblyBuilder.SetEntryPoint(methodBuilder, PEFileKinds.WindowApplication);
             assemblyBuilder.Save($"{aName.Name}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
 
         }

@@ -16,8 +16,9 @@ namespace CreateDump64
     {
         public void Test(string[] args)
         {
-            var sb22 = new StringBuilder("asdf");
+//            var sb22 = new StringBuilder("asdf");
             var sb = new StringBuilder();
+            var dt = DateTime.Now.ToString();
             sb.AppendLine(args[0]);
             sb.AppendLine($"asdf{564}");
 

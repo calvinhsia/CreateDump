@@ -31,8 +31,29 @@ namespace UnitTestProject1
         public void TestCreate64BitExecutableUsingEmit()
         {
             var oBuilder = new Create64Bit();
-            //            oBuilder.CreateAssembly();
-            oBuilder.Create64BitExeUsingEmit(@"c:\users\calvinh\",AsmName: "MyTest64",TypeName:"MyType64");
+            var targ64PEFile = @"c:\users\calvinh\MyTest64.exe";
+            File.Delete(targ64PEFile);
+            oBuilder.Create64BitExeUsingEmit(
+               DirName: Path.GetDirectoryName(targ64PEFile),
+               AsmName: Path.GetFileNameWithoutExtension(targ64PEFile),
+               TypeName: "MyType64");
+            Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE note found {targ64PEFile}");
+            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+            File.Delete(tempOutputFile);
+            var p64 = Process.Start(targ64PEFile, tempOutputFile);
+            if (p64.WaitForExit(10 * 1000))
+            {
+                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
+                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                var txtResults = File.ReadAllText(tempOutputFile);
+                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."));
+                TestContext.WriteLine(txtResults);
+            }
+            else
+            {
+                Assert.Fail($"Process took too long {targ64PEFile}");
+            }
+
         }
     }
 }
