@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using CreateDump;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -51,7 +52,7 @@ namespace UnitTestProject1
             var TypeName = "MyType64";
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile,TypeName);
+            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit();
             Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
@@ -66,7 +67,7 @@ namespace UnitTestProject1
                 Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
                 var txtResults = File.ReadAllText(tempOutputFile);
                 TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."),"Content not as expected");
+                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."), "Content not as expected");
             }
             else
             {
@@ -103,6 +104,53 @@ namespace UnitTestProject1
             TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");
             Assert.IsTrue(dumpSize > 100000000, $"Dump file size = {dumpSize:n0}");
             File.Delete(dumpFilename);
+        }
+
+        [TestMethod]
+        public void TestAsmLoadPW()
+        {
+            var curexe = Process.GetCurrentProcess().MainModule.FileName;
+            TestContext.WriteLine(curexe);
+            // C:\Program Files (x86)\Microsoft Visual Studio\2019\Preview\Common7\IDE\Extensions\TestPlatform\testhost.x86.exe
+            var pwAsm = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
+            targ32bitDll = pwAsm;
+            //pwAsm = @"c:\Microsoft.VisualStudio.PerfWatson.dll";
+            TestContext.WriteLine(pwAsm);
+            Assert.IsTrue(File.Exists(pwAsm));
+            Exception exception = null;
+            var asm = Assembly.LoadFrom(pwAsm);
+            try
+            {
+                var tps = asm.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                exception = ex;
+                TestContext.WriteLine($"Got expected {nameof(ReflectionTypeLoadException)}");
+            }
+            Assert.IsNotNull(exception);
+            AppDomain.CurrentDomain.AssemblyResolve += MyAsmResolver;
+            var tps2 = asm.GetTypes();
+            AppDomain.CurrentDomain.AssemblyResolve -= MyAsmResolver;
+
+
+        }
+        string targ32bitDll;
+        Assembly MyAsmResolver(object sender, ResolveEventArgs args)
+        {
+            Assembly asm = null;
+            var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+            var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+            if (requestName == "Microsoft.VisualStudio.Telemetry")
+            {
+                asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Microsoft.VisualStudio.Telemetry.dll"));
+            }
+            else if (requestName == "Newtonsoft.Json")
+            {
+                asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Newtonsoft.Json.dll"));
+            }
+            return asm;
+
         }
 
     }

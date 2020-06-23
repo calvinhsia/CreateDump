@@ -66,6 +66,7 @@ Signed    : 0
         static string targ32bitDll;// = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\Microsoft.VisualStudio.PerfWatson.dll";
         static public void Main(string[] args) // simple version easy to generate via Reflection.Emit
         {
+
             // "fullnameOf32BitAsm", NameOfType,NameOfMethod,Pid, "dumpfile"
             // "C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" MemoryDumpHelper CollectDump, 18844, "c:\users\calvinh\t.dmp"
             // "C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE\PerfWatson2.exe" MemoryDumpHelper CollectDump, 22520, "c:\users\calvinh\t.dmp"
