@@ -107,7 +107,7 @@ Signed    : 0
         {
             Assembly asm = null;
             var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-            var requestName = args.Name.Substring(0, args.Name.IndexOf(","));
+            var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
             if (requestName == "Microsoft.VisualStudio.Telemetry")
             {
                 asm = Assembly.LoadFrom(Path.Combine(privAsmDir, @"Microsoft.VisualStudio.Telemetry.dll"));
