@@ -156,6 +156,11 @@ namespace UnitTestProject1
             TestContext.WriteLine(targ32bitDll);
             Assert.IsTrue(File.Exists(targ32bitDll));
             Exception exception = null;
+            var procToDump = "ServiceHub.VSDetouredHost"; // must be 32 bit process when invoking directly
+//            procToDump = "devenv";
+            //                procToDump = "perfwatson2";
+            var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
+            var proc = Process.GetProcessesByName(procToDump)[0];
             var asm = Assembly.LoadFrom(targ32bitDll);
             try
             {
@@ -169,6 +174,22 @@ namespace UnitTestProject1
             Assert.IsNotNull(exception);
             AppDomain.CurrentDomain.AssemblyResolve += MyAsmResolver;
             var tps2 = asm.GetTypes();
+            foreach (var typ in tps2)
+            {
+                if (typ.Name == "MemoryDumpHelper")
+                {
+                    var methCollectDump = typ.GetMethod("CollectDump");
+                    var memdumpHelper = Activator.CreateInstance(typ);
+                    methCollectDump.Invoke(memdumpHelper, new object[] {proc.Id, dumpFilename , true});
+                    break;
+                }
+            }
+            Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
+            var dumpSize = new FileInfo(dumpFilename).Length;
+            TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");
+            Assert.IsTrue(dumpSize > 100000000, $"Dump file size = {dumpSize:n0}");
+            File.Delete(dumpFilename);
+
             AppDomain.CurrentDomain.AssemblyResolve -= MyAsmResolver;
 
 
