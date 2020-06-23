@@ -125,7 +125,8 @@ namespace UnitTestProject1
                 il.DeclareLocal(typeof(Int32)); // 4
                 il.DeclareLocal(typeof(Type)); // 5 // as we iterate types
                 il.DeclareLocal(typeof(string)); // 6 // string typename in loop
-
+                il.DeclareLocal(typeof(MethodInfo)); // 7 method
+                il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
                 il.BeginExceptionBlock();
                 {
                     il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
@@ -137,7 +138,7 @@ namespace UnitTestProject1
 
                     //targ32bitDll = args[0];
                     il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Ldc_I4, 0);
+                    il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Ldelem_Ref);
                     il.Emit(OpCodes.Stsfld, statTarg32bitDll);
 
@@ -167,7 +168,7 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Stloc, 4);
                     var labIncLoop = il.DefineLabel();
                     var labBreakLoop = il.DefineLabel();
-                    il.Emit(OpCodes.Br_S, labIncLoop);
+                    il.Emit(OpCodes.Br, labIncLoop);
                     {
                         var labStartLoop = il.DefineLabel();
                         il.MarkLabel(labStartLoop);
@@ -180,16 +181,60 @@ namespace UnitTestProject1
                         il.Emit(OpCodes.Callvirt, typeof(MemberInfo).GetProperty("Name").GetMethod);
                         il.Emit(OpCodes.Stloc, 6);
 
-
-
                         il.Emit(OpCodes.Ldsfld, statStringBuilder);
                         il.Emit(OpCodes.Ldloc, 6);
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
 
+                        //if (type.Name == args[1])
+                        var labNotOurType = il.DefineLabel();
+                        il.Emit(OpCodes.Ldloc, 6);
+                        il.Emit(OpCodes.Ldarg_0);
+                        il.Emit(OpCodes.Ldc_I4_1);
+                        il.Emit(OpCodes.Ldelem_Ref);
+
+                        il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                        il.Emit(OpCodes.Brfalse_S, labNotOurType);
+                        {
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "GotOurType");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            //var methCollectDump = type.GetMethod(args[2]);
+                            il.Emit(OpCodes.Ldloc, 5);
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_2);
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Callvirt, typeof(Type).GetMethod("GetMethod", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Stloc, 7);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "GotOurMethod");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            //var memdumpHelper = Activator.CreateInstance(type);
+                            il.Emit(OpCodes.Ldloc, 5);
+                            il.Emit(OpCodes.Call, typeof(Activator).GetMethod("CreateInstance", new Type[] { typeof(Type) }));
+                            il.Emit(OpCodes.Stloc, 8);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "CreatedInstance");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+
+                            //methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                            //break;
 
 
 
+
+
+                            il.Emit(OpCodes.Br_S, labBreakLoop);
+                        }
+                        il.MarkLabel(labNotOurType);
 
                         // increment count
                         il.Emit(OpCodes.Ldloc, 4);
@@ -202,7 +247,7 @@ namespace UnitTestProject1
                         il.Emit(OpCodes.Ldloc_3);
                         il.Emit(OpCodes.Ldlen);
                         il.Emit(OpCodes.Conv_I4);
-                        il.Emit(OpCodes.Blt_S, labStartLoop);
+                        il.Emit(OpCodes.Blt, labStartLoop);
                     }
                     il.MarkLabel(labBreakLoop);
 

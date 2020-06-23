@@ -50,6 +50,9 @@ namespace UnitTestProject1
 
                 Assert.IsTrue(txtResults.Contains("IsVsTelem"), "Content not as expected");
                 Assert.IsTrue(txtResults.Contains("IsJson"), "Content not as expected");
+                Assert.IsTrue(txtResults.Contains("MemoryDumpHelper"), "Content not as expected");
+                Assert.IsTrue(txtResults.Contains("GotOurType"), "Content not as expected");
+                Assert.IsTrue(txtResults.Contains("CreatedInstance"), "Content not as expected");
             }
             else
             {
