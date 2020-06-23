@@ -92,21 +92,17 @@ namespace UnitTestProject1
             {
                 var il = mainMethodBuilder.GetILGenerator();
 
-                il.DeclareLocal(typeof(StringBuilder));
-                il.DeclareLocal(typeof(string));
-                il.DeclareLocal(typeof(DateTime));
-                il.DeclareLocal(typeof(string));
-                il.DeclareLocal(typeof(string));
+                il.DeclareLocal(typeof(string));//0
+                il.DeclareLocal(typeof(DateTime));//1
+                il.DeclareLocal(typeof(Assembly)); //2
+                il.DeclareLocal(typeof(Assembly)); //3
 
                 il.BeginExceptionBlock();
                 {
                     il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
-                    il.Emit(OpCodes.Stloc_0);
-
-                    il.Emit(OpCodes.Ldloc_0);
                     il.Emit(OpCodes.Stsfld, statStringBuilder);
 
-                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Ldstr, "In 64 bit exe");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
@@ -114,13 +110,11 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Ldc_I4, 0);
                     il.Emit(OpCodes.Ldelem_Ref);
                     il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Stloc_2);
 
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Ldstr, "Asm Load");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-
-
 
 
                     il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
@@ -130,36 +124,49 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetAddMethod());
 
 
+                    il.Emit(OpCodes.Ldloc_2);
+                    il.Emit(OpCodes.Callvirt, typeof(Assembly).GetMethod("GetExportedTypes"));
+                    var labStartLoop = il.DefineLabel();
+                    il.MarkLabel(labStartLoop);
+
+
+
+
+
+
+
+
+
 
                 }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
                 {
                     il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
-                    il.Emit(OpCodes.Stloc_1);
+                    il.Emit(OpCodes.Stloc_0);
 
-                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Call, typeof(DateTime).GetProperty("Now").GetMethod);
-                    il.Emit(OpCodes.Stloc_2);
-                    il.Emit(OpCodes.Ldloca_S, 2);
+                    il.Emit(OpCodes.Stloc_1);
+                    il.Emit(OpCodes.Ldloca_S, 1);
                     il.Emit(OpCodes.Callvirt, typeof(DateTime).GetMethod("ToString", new Type[0]));
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
                     il.Emit(OpCodes.Ldstr, "Exception thrown");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
-                    il.Emit(OpCodes.Ldloc_1);
+                    il.Emit(OpCodes.Ldloc_0);
                     il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Pop);
                 }
                 il.EndExceptionBlock();
 
-                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Ldsfld, statStringBuilder);
                 il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-                il.Emit(OpCodes.Stloc_1);
+                il.Emit(OpCodes.Stloc_0);
                 il.Emit(OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Ldc_I4, 4);
                 il.Emit(OpCodes.Ldelem_Ref);
-                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ldloc_0);
                 il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 il.Emit(OpCodes.Ret);
             }
