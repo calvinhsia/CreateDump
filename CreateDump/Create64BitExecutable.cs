@@ -8,17 +8,22 @@ namespace UnitTestProject1
 {
     internal class Create64Bit
     {
-        public Create64Bit()
+        private readonly string _targ64PEFile;
+        private readonly string _TypeName;
+
+        public Create64Bit(string targ64PEFile, string TypeName)
         {
+            _targ64PEFile = targ64PEFile;
+            _TypeName = TypeName;
         }
 
-        public void Create64BitExeUsingEmit(string DirName, string AsmName, string TypeName)
+        public void Create64BitExeUsingEmit()
         {
-            var aName = new AssemblyName(AsmName);
+            var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
             // the Appdomain DefineDynamicAssembly has an overload for Dir
-            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: DirName);
+            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
-            var typeBuilder = moduleBuilder.DefineType(TypeName, TypeAttributes.Public);
+            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
             var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
             var il = methodBuilder.GetILGenerator();
 
@@ -27,28 +32,20 @@ namespace UnitTestProject1
             il.DeclareLocal(typeof(DateTime));
 
             il.BeginExceptionBlock();
-            il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
-            il.Emit(OpCodes.Stloc_0);
-            il.Emit(OpCodes.Ldloc_0);
+            {
+                il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+                il.Emit(OpCodes.Stloc_0);
 
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldc_I4, 0);
-            il.Emit(OpCodes.Ldelem_Ref);
-            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldc_I4, 1);
-            il.Emit(OpCodes.Ldelem_Ref);
-
-            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-            il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-
-            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) }));
-
-            il.Emit(OpCodes.Call, typeof(Console).GetMethod("ReadLine"));
-            il.Emit(OpCodes.Pop);
-
+                for (int i = 0; i < 3; i++)
+                {
+                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldc_I4, i);
+                    il.Emit(OpCodes.Ldelem_Ref);
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Pop);
+                }
+            }
             il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
             {
                 il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
@@ -58,24 +55,26 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Call, typeof(DateTime).GetProperty("Now").GetMethod);
                 il.Emit(OpCodes.Stloc_2);
                 il.Emit(OpCodes.Ldloca_S, 2);
-                il.Emit(OpCodes.Call, typeof(DateTime).GetMethod("ToString", new Type[0]));
+                il.Emit(OpCodes.Callvirt, typeof(DateTime).GetMethod("ToString", new Type[0]));
+                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+                il.Emit(OpCodes.Ldstr, "Exception thrown");
                 il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
                 il.Emit(OpCodes.Ldloc_1);
-                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-                il.Emit(OpCodes.Ldstr, "some text");
-                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-                il.Emit(OpCodes.Stloc_1);
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldc_I4, 0);
-                il.Emit(OpCodes.Ldelem_Ref);
-                il.Emit(OpCodes.Ldloc_1);
-                il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                il.Emit(OpCodes.Pop);
             }
             il.EndExceptionBlock();
+
+            il.Emit(OpCodes.Ldloc_0);
+            il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+            il.Emit(OpCodes.Stloc_1);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldc_I4, 0);
+            il.Emit(OpCodes.Ldelem_Ref);
+            il.Emit(OpCodes.Ldloc_1);
+            il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
             il.Emit(OpCodes.Ret);
 
             typeBuilder.CreateType();
