@@ -84,7 +84,7 @@ Signed    : 0
                 //    };
                 //}
                 targ32bitDll = args[0];
-                var asmprog32 = Assembly.LoadFrom(args[0]);
+                var asmprog32 = Assembly.LoadFrom(targ32bitDll);
                 //                var typs = asmprog32.DefinedTypes;
                 foreach (var type in asmprog32.GetExportedTypes())
                 {
