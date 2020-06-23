@@ -80,6 +80,16 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Ldloc_3);
                 il.Emit(OpCodes.Ldstr, "Microsoft.VisualStudio.Telemetry");
                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                var labIsNotVSTelem = il.DefineLabel();
+                il.Emit(OpCodes.Brfalse_S, labIsNotVSTelem);
+                {
+                    il.Emit(OpCodes.Ldstr, "IsVsTelem");
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                }
+
+
+
+                il.MarkLabel(labIsNotVSTelem);
 
 
 

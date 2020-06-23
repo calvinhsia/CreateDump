@@ -33,6 +33,7 @@ namespace UnitTestProject1
                 var txtResults = File.ReadAllText(tempOutputFile);
                 TestContext.WriteLine(txtResults);
                 Assert.IsTrue(txtResults.Contains("2ndArg"), "Content not as expected");
+                Assert.IsTrue(txtResults.Contains("IsVsTelem"), "Content not as expected");
             }
             else
             {
