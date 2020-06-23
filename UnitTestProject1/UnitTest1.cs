@@ -12,6 +12,49 @@ namespace UnitTestProject1
     {
         public TestContext TestContext { get; set; }
 
+        string targ32bitDll;
+        [TestInitialize]
+        public void Init()
+        {
+            var curexe = Process.GetCurrentProcess().MainModule.FileName;
+            TestContext.WriteLine(curexe);
+            // C:\Program Files (x86)\Microsoft Visual Studio\2019\Preview\Common7\IDE\Extensions\TestPlatform\testhost.x86.exe
+            targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
+        }
+
+        [TestMethod]
+        public void TestLoad64()
+        {
+            var TypeName = "MyType64";
+            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            File.Delete(targ64PEFile);
+            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            oBuilder.Create64BitExeUsingEmit();
+            Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
+            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+
+            // try with invalid arg count
+
+            File.Delete(tempOutputFile);
+            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
+            var p64 = Process.Start(targ64PEFile, $@"""{targ32bitDll}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{tempOutputFile}""");
+            if (p64.WaitForExit(10 * 1000))
+            {
+                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
+                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                var txtResults = File.ReadAllText(tempOutputFile);
+                TestContext.WriteLine(txtResults);
+                Assert.IsTrue(txtResults.Contains("In 64 bit exe"), "Content not as expected");
+            }
+            else
+            {
+                Assert.Fail($"Process took too long {targ64PEFile}");
+            }
+        }
+
+
+
+
         [TestMethod]
         public void TestEmit()
         {
@@ -19,7 +62,7 @@ namespace UnitTestProject1
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             File.Delete(targ64PEFile);
             var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.Create64BitExeUsingEmit();
+            oBuilder.TestCreate64BitExeUsingEmit();
             Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
@@ -53,7 +96,7 @@ namespace UnitTestProject1
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             File.Delete(targ64PEFile);
             var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.Create64BitExeUsingEmit();
+            oBuilder.TestCreate64BitExeUsingEmit();
             Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
@@ -109,16 +152,11 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestAsmLoadPW()
         {
-            var curexe = Process.GetCurrentProcess().MainModule.FileName;
-            TestContext.WriteLine(curexe);
-            // C:\Program Files (x86)\Microsoft Visual Studio\2019\Preview\Common7\IDE\Extensions\TestPlatform\testhost.x86.exe
-            var pwAsm = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
-            targ32bitDll = pwAsm;
-            //pwAsm = @"c:\Microsoft.VisualStudio.PerfWatson.dll";
-            TestContext.WriteLine(pwAsm);
-            Assert.IsTrue(File.Exists(pwAsm));
+            //targ32bitDll = @"c:\Microsoft.VisualStudio.PerfWatson.dll";
+            TestContext.WriteLine(targ32bitDll);
+            Assert.IsTrue(File.Exists(targ32bitDll));
             Exception exception = null;
-            var asm = Assembly.LoadFrom(pwAsm);
+            var asm = Assembly.LoadFrom(targ32bitDll);
             try
             {
                 var tps = asm.GetTypes();
@@ -135,7 +173,6 @@ namespace UnitTestProject1
 
 
         }
-        string targ32bitDll;
         Assembly MyAsmResolver(object sender, ResolveEventArgs args)
         {
             Assembly asm = null;

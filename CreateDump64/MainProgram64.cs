@@ -84,7 +84,6 @@ Signed    : 0
                 //    };
                 //}
                 targ32bitDll = args[0];
-                //Environment.CurrentDirectory = @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Master\Common7\IDE";
                 var asmprog32 = Assembly.LoadFrom(args[0]);
                 //                var typs = asmprog32.DefinedTypes;
                 foreach (var type in asmprog32.GetExportedTypes())
