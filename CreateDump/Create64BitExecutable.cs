@@ -123,6 +123,8 @@ namespace UnitTestProject1
                 il.DeclareLocal(typeof(Assembly)); //2 targ32bitasm
                 il.DeclareLocal(typeof(Type[])); //3 
                 il.DeclareLocal(typeof(Int32)); // 4
+                il.DeclareLocal(typeof(Type)); // 5 // as we iterate types
+                il.DeclareLocal(typeof(string)); // 6 // string typename in loop
 
                 il.BeginExceptionBlock();
                 {
@@ -164,15 +166,29 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Stloc, 4);
                     var labIncLoop = il.DefineLabel();
+                    var labBreakLoop = il.DefineLabel();
                     il.Emit(OpCodes.Br_S, labIncLoop);
                     {
                         var labStartLoop = il.DefineLabel();
                         il.MarkLabel(labStartLoop);
 
+                        il.Emit(OpCodes.Ldloc_3);
+                        il.Emit(OpCodes.Ldloc, 4);
+                        il.Emit(OpCodes.Ldelem_Ref);
+                        il.Emit(OpCodes.Stloc, 5);
+                        il.Emit(OpCodes.Ldloc, 5);
+                        il.Emit(OpCodes.Callvirt, typeof(MemberInfo).GetProperty("Name").GetMethod);
+                        il.Emit(OpCodes.Stloc, 6);
+
+
+
                         il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                        il.Emit(OpCodes.Ldstr, "In loop");
+                        il.Emit(OpCodes.Ldloc, 6);
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
+
+
+
 
 
                         // increment count
@@ -188,7 +204,7 @@ namespace UnitTestProject1
                         il.Emit(OpCodes.Conv_I4);
                         il.Emit(OpCodes.Blt_S, labStartLoop);
                     }
-
+                    il.MarkLabel(labBreakLoop);
 
 
                 }
