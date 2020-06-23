@@ -24,6 +24,8 @@ namespace UnitTestProject1
             var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+            var statTarg32bitDll= typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+
             var methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.Public | MethodAttributes.Static, null, new Type[] { typeof(string[]) });
             var il = methodBuilder.GetILGenerator();
 
@@ -48,6 +50,10 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Pop);
                 }
                 //            var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+
+                il.Emit(OpCodes.Ldstr, "string in static field");
+                il.Emit(OpCodes.Stsfld, statTarg32bitDll);
+
 
                 il.Emit(OpCodes.Ldloc_0);
                 il.Emit(OpCodes.Ldarg_0);
@@ -86,12 +92,11 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Ldstr, "IsVsTelem");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                 }
-
-
-
                 il.MarkLabel(labIsNotVSTelem);
 
-
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
+                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
 
 
