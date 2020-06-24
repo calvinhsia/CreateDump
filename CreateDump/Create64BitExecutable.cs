@@ -127,6 +127,8 @@ namespace UnitTestProject1
                 il.DeclareLocal(typeof(string)); // 6 // string typename in loop
                 il.DeclareLocal(typeof(MethodInfo)); // 7 method
                 il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
+                il.DeclareLocal(typeof(object[])); // 9 argsToPass
+                il.DeclareLocal(typeof(Int32));//10 pidAsString
                 il.BeginExceptionBlock();
                 {
                     il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
@@ -162,10 +164,10 @@ namespace UnitTestProject1
                     //foreach (var type in asmprog32.GetExportedTypes())
                     il.Emit(OpCodes.Ldloc_2);
                     il.Emit(OpCodes.Callvirt, typeof(Assembly).GetMethod("GetExportedTypes"));
-                    il.Emit(OpCodes.Stloc_3);
+                    il.Emit(OpCodes.Stloc_3); // type[]
 
                     il.Emit(OpCodes.Ldc_I4_0);
-                    il.Emit(OpCodes.Stloc, 4);
+                    il.Emit(OpCodes.Stloc, 4); // loop index
                     var labIncLoop = il.DefineLabel();
                     var labBreakLoop = il.DefineLabel();
                     il.Emit(OpCodes.Br, labIncLoop);
@@ -173,8 +175,8 @@ namespace UnitTestProject1
                         var labStartLoop = il.DefineLabel();
                         il.MarkLabel(labStartLoop);
 
-                        il.Emit(OpCodes.Ldloc_3);
-                        il.Emit(OpCodes.Ldloc, 4);
+                        il.Emit(OpCodes.Ldloc_3); // type[]
+                        il.Emit(OpCodes.Ldloc, 4);// loop index
                         il.Emit(OpCodes.Ldelem_Ref);
                         il.Emit(OpCodes.Stloc, 5);
                         il.Emit(OpCodes.Ldloc, 5);
@@ -194,7 +196,7 @@ namespace UnitTestProject1
                         il.Emit(OpCodes.Ldelem_Ref);
 
                         il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
-                        il.Emit(OpCodes.Brfalse_S, labNotOurType);
+                        il.Emit(OpCodes.Brfalse, labNotOurType);
                         {
                             il.Emit(OpCodes.Ldsfld, statStringBuilder);
                             il.Emit(OpCodes.Ldstr, "GotOurType");
@@ -224,15 +226,107 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                             il.Emit(OpCodes.Pop);
 
+                            //var pidAsString = int.Parse(args[3]);
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Stloc, 10);
 
-                            //methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                            //var argsToPass = new object[] { pidAsString, args[4], true };
+                            il.Emit(OpCodes.Ldc_I4_3); // size of array
+                            il.Emit(OpCodes.Newarr, typeof(Object));
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Stloc, 9);
+                            il.Emit(OpCodes.Ldloc, 9);
+                            il.Emit(OpCodes.Ldc_I4_0); // array elem 0
+                            il.Emit(OpCodes.Ldloc, 10);
+                            il.Emit(OpCodes.Box, typeof(Int32));
+                            il.Emit(OpCodes.Stelem_Ref);
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Ldc_I4_1); // elem 1
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_4);
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Stelem_Ref);
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Ldc_I4_2); // elem[2]
+                            il.Emit(OpCodes.Ldc_I4_1); // true
+                            il.Emit(OpCodes.Box, typeof(Boolean));
+                            il.Emit(OpCodes.Stelem_Ref);
+
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 7); // Void CollectDump(Int32, System.String, Boolean)
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 8); // Microsoft.Performance.ResponseTime.MemoryDumpHelper
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 9);
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+                            for (int i = 0; i < 3; i++)
+                            {
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Ldloc, 9);
+                                il.Emit(OpCodes.Ldc_I4, i);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                                il.Emit(OpCodes.Pop);
+                            }
+
+
+
+                            //methCollectDump.Invoke(memdumpHelper, argsToPass);
+                            //il.Emit(OpCodes.Ldloc, 7);
+                            //il.Emit(OpCodes.Ldloc, 8);
+                            //il.Emit(OpCodes.Ldloc, 9);
+                            //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+
+
+                            il.Emit(OpCodes.Pop);
+
+
+                            ////methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                            //il.Emit(OpCodes.Ldloc, 7); //methodinfo
+                            //il.Emit(OpCodes.Ldloc, 8); // object
+                            //il.Emit(OpCodes.Ldc_I4_3); // size of array
+                            //il.Emit(OpCodes.Newarr, typeof(Object));
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_0);
+                            //il.Emit(OpCodes.Ldarg_0);
+                            //il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
+                            //il.Emit(OpCodes.Ldelem_Ref);
+                            //il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
+                            //il.Emit(OpCodes.Box, typeof(Int32));
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_1);
+                            //il.Emit(OpCodes.Ldarg_0);
+                            //il.Emit(OpCodes.Ldc_I4_4);
+                            //il.Emit(OpCodes.Ldelem_Ref);
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_2);
+                            //il.Emit(OpCodes.Ldc_I4_1);
+                            //il.Emit(OpCodes.Box, typeof(Boolean));
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+                            //il.Emit(OpCodes.Pop);
+
+
+
                             //break;
-
-
-
-
-
-                            il.Emit(OpCodes.Br_S, labBreakLoop);
+                            il.Emit(OpCodes.Br, labBreakLoop);
                         }
                         il.MarkLabel(labNotOurType);
 
@@ -250,8 +344,6 @@ namespace UnitTestProject1
                         il.Emit(OpCodes.Blt, labStartLoop);
                     }
                     il.MarkLabel(labBreakLoop);
-
-
                 }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
                 {

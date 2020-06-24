@@ -92,7 +92,9 @@ Signed    : 0
                     {
                         var methCollectDump = type.GetMethod(args[2]);
                         var memdumpHelper = Activator.CreateInstance(type);
-                        methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                        var pidAsString = int.Parse(args[3]);
+                        var argsToPass = new object[] {pidAsString, args[4], true };
+                        methCollectDump.Invoke(memdumpHelper, argsToPass);
                         break;
                     }
                 }
