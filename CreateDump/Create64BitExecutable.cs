@@ -10,6 +10,10 @@ namespace UnitTestProject1
     {
         private readonly string _targ64PEFile;
         private readonly string _TypeName;
+        internal AssemblyBuilder _assemblyBuilder;
+        internal MethodBuilder _mainMethodBuilder;
+        internal TypeBuilder _typeBuilder;
+        internal Type _type;
 
         public Create64Bit(string targ64PEFile, string TypeName)
         {
@@ -17,12 +21,102 @@ namespace UnitTestProject1
             _TypeName = TypeName;
         }
 
-        public void Create64BitExeUsingEmit()
+        public void CreateSimpleAsm()
         {
             var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
             // the Appdomain DefineDynamicAssembly has an overload for Dir
-            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: Path.GetDirectoryName(_targ64PEFile));
-            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            _assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+                aName,
+                AssemblyBuilderAccess.RunAndSave,
+                dir: Path.GetDirectoryName(_targ64PEFile));
+            var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+            var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+            var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
+            _mainMethodBuilder = typeBuilder.DefineMethod(
+                "Main",
+                MethodAttributes.Public | MethodAttributes.Static,
+                returnType: null,
+                parameterTypes: new Type[] { typeof(string[]) });
+            {
+                var il = _mainMethodBuilder.GetILGenerator();
+
+                il.DeclareLocal(typeof(string));//0
+                il.DeclareLocal(typeof(DateTime));//1
+                il.DeclareLocal(typeof(Assembly)); //2 targ32bitasm
+                il.DeclareLocal(typeof(Type[])); //3 
+                il.DeclareLocal(typeof(Int32)); // 4
+                il.DeclareLocal(typeof(Type)); // 5 // as we iterate types
+                il.DeclareLocal(typeof(string)); // 6 // string typename in loop
+                il.DeclareLocal(typeof(MethodInfo)); // 7 method
+                il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
+                il.DeclareLocal(typeof(object[])); // 9 argsToPass
+                il.DeclareLocal(typeof(Int32));//10 pidAsString
+                il.BeginExceptionBlock();
+                {
+                    il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+                    il.Emit(OpCodes.Stsfld, statStringBuilder);
+
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                    il.Emit(OpCodes.Ldstr, "In 64 bit exe");
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+                    //targ32bitDll = args[0];
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    il.Emit(OpCodes.Ldelem_Ref);
+                    il.Emit(OpCodes.Stsfld, statTarg32bitDll);
+
+                    //var asmprog32 = Assembly.LoadFrom(args[0]);
+                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
+                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Stloc_2);
+
+
+                }
+                il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
+                {
+                    il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+                    il.Emit(OpCodes.Stloc_0);
+
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                    il.Emit(OpCodes.Call, typeof(DateTime).GetProperty("Now").GetMethod);
+                    il.Emit(OpCodes.Stloc_1);
+                    il.Emit(OpCodes.Ldloca_S, 1);
+                    il.Emit(OpCodes.Callvirt, typeof(DateTime).GetMethod("ToString", new Type[0]));
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+                    il.Emit(OpCodes.Ldstr, "Exception thrown");
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+
+                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Pop);
+                }
+                il.EndExceptionBlock();
+
+                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                il.Emit(OpCodes.Stloc_0);
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldc_I4, 4);
+                il.Emit(OpCodes.Ldelem_Ref);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                il.Emit(OpCodes.Ret);
+            }
+            _type = typeBuilder.CreateType();
+        }
+
+        public void Create64BitExeUsingEmit(bool IncludeInvoke)
+        {
+            var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
+            // the Appdomain DefineDynamicAssembly has an overload for Dir
+            _assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+                aName, 
+                AssemblyBuilderAccess.RunAndSave, 
+                dir: Path.GetDirectoryName(_targ64PEFile));
+            var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
             var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
@@ -110,13 +204,13 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Ldloc_0);
                 il.Emit(OpCodes.Ret);
             }
-            var mainMethodBuilder = typeBuilder.DefineMethod(
+            _mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
                 returnType: null,
                 parameterTypes: new Type[] { typeof(string[]) });
             {
-                var il = mainMethodBuilder.GetILGenerator();
+                var il = _mainMethodBuilder.GetILGenerator();
 
                 il.DeclareLocal(typeof(string));//0
                 il.DeclareLocal(typeof(DateTime));//1
@@ -158,7 +252,7 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetAddMethod());
 
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Ldstr, "Asm ResolveEvents");
+                    il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events subscribed");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
                     //foreach (var type in asmprog32.GetExportedTypes())
@@ -284,14 +378,21 @@ namespace UnitTestProject1
                                 il.Emit(OpCodes.Pop);
                             }
 
-
-
-                            //methCollectDump.Invoke(memdumpHelper, argsToPass);
-                            //il.Emit(OpCodes.Ldloc, 7);
-                            //il.Emit(OpCodes.Ldloc, 8);
-                            //il.Emit(OpCodes.Ldloc, 9);
+                            //il.Emit(OpCodes.Ldnull);
+                            //il.Emit(OpCodes.Ldnull);
                             //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
 
+                            if (IncludeInvoke)
+                            {
+                                //methCollectDump.Invoke(memdumpHelper, argsToPass);
+                                il.Emit(OpCodes.Ldloc, 7);
+                                il.Emit(OpCodes.Ldloc, 8);
+                                il.Emit(OpCodes.Ldloc, 9);
+                                //il.Emit(OpCodes.Pop);
+                                //il.Emit(OpCodes.Pop);
+                                //il.Emit(OpCodes.Pop);
+                                il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+                            }
 
                             il.Emit(OpCodes.Pop);
 
@@ -376,10 +477,7 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 il.Emit(OpCodes.Ret);
             }
-            typeBuilder.CreateType();
-            assemblyBuilder.SetEntryPoint(mainMethodBuilder, PEFileKinds.WindowApplication);
-            assemblyBuilder.Save($"{aName.Name}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
-
+            _type = typeBuilder.CreateType();
         }
 
 
@@ -389,10 +487,10 @@ namespace UnitTestProject1
             // the Appdomain DefineDynamicAssembly has an overload for Dir
             var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
-            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
-            var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
-            var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
-            var AsmResolveMethodBuilder = typeBuilder.DefineMethod(
+            _typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+            var statTarg32bitDll = _typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+            var statStringBuilder = _typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
+            var AsmResolveMethodBuilder = _typeBuilder.DefineMethod(
                 "CurrentDomain_AssemblyResolve",
                 MethodAttributes.Static,
                 returnType: typeof(Assembly),
@@ -404,7 +502,7 @@ namespace UnitTestProject1
 
                 il.Emit(OpCodes.Ret);
             }
-            var mainMethodBuilder = typeBuilder.DefineMethod(
+            var mainMethodBuilder = _typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
                 returnType: null,
@@ -521,7 +619,7 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 il.Emit(OpCodes.Ret);
             }
-            typeBuilder.CreateType();
+            _typeBuilder.CreateType();
             assemblyBuilder.SetEntryPoint(mainMethodBuilder, PEFileKinds.WindowApplication);
             assemblyBuilder.Save($"{aName.Name}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
 
