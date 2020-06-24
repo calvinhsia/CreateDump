@@ -10,7 +10,7 @@ namespace CreateDump
         /// <summary>
         /// Collects a mini dump (optionally with full memory) for the given process and writes it to the given file path
         /// </summary>
-        public void CollectDump(int ProcessId, string dumpFilePath, bool fIncludeFullHeap)
+        public static void CollectDump(int ProcessId, string dumpFilePath, bool fIncludeFullHeap)
         {
             var process = Process.GetProcessById(ProcessId);
             //LoggerBase.WriteInformation($"Dump collection started. FullHeap= {fIncludeFullHeap} {dumpFilePath}");

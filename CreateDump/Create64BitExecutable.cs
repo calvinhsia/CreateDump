@@ -12,7 +12,6 @@ namespace UnitTestProject1
         private readonly string _TypeName;
         internal AssemblyBuilder _assemblyBuilder;
         internal MethodBuilder _mainMethodBuilder;
-        internal TypeBuilder _typeBuilder;
         internal Type _type;
 
         public Create64Bit(string targ64PEFile, string TypeName)
@@ -31,7 +30,6 @@ namespace UnitTestProject1
                 dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
-            var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
             _mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
@@ -58,21 +56,209 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Stsfld, statStringBuilder);
 
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Ldstr, "In 64 bit exe");
+                    il.Emit(OpCodes.Ldstr, "In simple asm");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
-                    //targ32bitDll = args[0];
+
+                    //var asmprog32 = Assembly.LoadFrom(args[0]);
                     il.Emit(OpCodes.Ldarg_0);
                     il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Ldelem_Ref);
-                    il.Emit(OpCodes.Stsfld, statTarg32bitDll);
-
-                    //var asmprog32 = Assembly.LoadFrom(args[0]);
-                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
-                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("UnsafeLoadFrom", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Stloc_2);
 
+                    //foreach (var type in asmprog32.GetExportedTypes())
+                    il.Emit(OpCodes.Ldloc_2);
+                    il.Emit(OpCodes.Callvirt, typeof(Assembly).GetMethod("GetTypes"));
+                    il.Emit(OpCodes.Stloc_3); // type[]
 
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    il.Emit(OpCodes.Stloc, 4); // loop index
+                    var labIncLoop = il.DefineLabel();
+                    var labBreakLoop = il.DefineLabel();
+                    il.Emit(OpCodes.Br, labIncLoop);
+                    {
+                        var labStartLoop = il.DefineLabel();
+                        il.MarkLabel(labStartLoop);
+
+                        il.Emit(OpCodes.Ldloc_3); // type[]
+                        il.Emit(OpCodes.Ldloc, 4);// loop index
+                        il.Emit(OpCodes.Ldelem_Ref);
+                        il.Emit(OpCodes.Stloc, 5);
+                        il.Emit(OpCodes.Ldloc, 5);
+                        il.Emit(OpCodes.Callvirt, typeof(MemberInfo).GetProperty("Name").GetMethod);
+                        il.Emit(OpCodes.Stloc, 6);
+
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldloc, 6);
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+
+                        //if (type.Name == args[1])
+                        var labNotOurType = il.DefineLabel();
+                        il.Emit(OpCodes.Ldloc, 6);
+                        il.Emit(OpCodes.Ldarg_0);
+                        il.Emit(OpCodes.Ldc_I4_1);
+                        il.Emit(OpCodes.Ldelem_Ref);
+
+                        il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                        il.Emit(OpCodes.Brfalse, labNotOurType);
+                        {
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "GotOurType");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            //var methCollectDump = type.GetMethod(args[2]);
+                            il.Emit(OpCodes.Ldloc, 5);
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_2);
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Callvirt, typeof(Type).GetMethod("GetMethod", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Stloc, 7);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "GotOurMethod");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            ////var memdumpHelper = Activator.CreateInstance(type);
+                            //il.Emit(OpCodes.Ldloc, 5);
+                            //il.Emit(OpCodes.Call, typeof(Activator).GetMethod("CreateInstance", new Type[] { typeof(Type) }));
+                            //il.Emit(OpCodes.Stloc, 8);
+
+                            //il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            //il.Emit(OpCodes.Ldstr, "CreatedInstance");
+                            //il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            //il.Emit(OpCodes.Pop);
+
+                            //var pidAsString = int.Parse(args[3]);
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Stloc, 10);
+
+                            //var argsToPass = new object[] { pidAsString, args[4], true };
+                            il.Emit(OpCodes.Ldc_I4_3); // size of array
+                            il.Emit(OpCodes.Newarr, typeof(Object));
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Stloc, 9);
+                            il.Emit(OpCodes.Ldloc, 9);
+                            il.Emit(OpCodes.Ldc_I4_0); // array elem 0
+                            il.Emit(OpCodes.Ldloc, 10);
+                            il.Emit(OpCodes.Box, typeof(Int32));
+                            il.Emit(OpCodes.Stelem_Ref);
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Ldc_I4_1); // elem 1
+                            il.Emit(OpCodes.Ldarg_0);
+                            il.Emit(OpCodes.Ldc_I4_4);
+                            il.Emit(OpCodes.Ldelem_Ref);
+                            il.Emit(OpCodes.Stelem_Ref);
+                            il.Emit(OpCodes.Dup);
+                            il.Emit(OpCodes.Ldc_I4_2); // elem[2]
+                            il.Emit(OpCodes.Ldc_I4_1); // true
+                            il.Emit(OpCodes.Box, typeof(Boolean));
+                            il.Emit(OpCodes.Stelem_Ref);
+
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 7); // Void CollectDump(Int32, System.String, Boolean)
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 8); // Microsoft.Performance.ResponseTime.MemoryDumpHelper
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldloc, 9);
+                            il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+                            for (int i = 0; i < 3; i++)
+                            {
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Ldloc, 9);
+                                il.Emit(OpCodes.Ldc_I4, i);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                                il.Emit(OpCodes.Pop);
+                            }
+
+                            //il.Emit(OpCodes.Ldnull);
+                            //il.Emit(OpCodes.Ldnull);
+                            //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+
+//                            if (false)
+                            {
+                                //methCollectDump.Invoke(memdumpHelper, argsToPass);
+                                il.Emit(OpCodes.Ldloc, 7); // method
+                                //il.Emit(OpCodes.Ldloc, 8); // instance
+                                //il.Emit(OpCodes.Ldloc, 9); // args
+                                //il.Emit(OpCodes.Pop);
+                                //il.Emit(OpCodes.Pop);
+                                //il.Emit(OpCodes.Pop);
+                                il.Emit(OpCodes.Ldnull);
+                                il.Emit(OpCodes.Ldnull);
+                                il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+                            }
+
+                            il.Emit(OpCodes.Pop);
+
+
+                            ////methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
+                            //il.Emit(OpCodes.Ldloc, 7); //methodinfo
+                            //il.Emit(OpCodes.Ldloc, 8); // object
+                            //il.Emit(OpCodes.Ldc_I4_3); // size of array
+                            //il.Emit(OpCodes.Newarr, typeof(Object));
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_0);
+                            //il.Emit(OpCodes.Ldarg_0);
+                            //il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
+                            //il.Emit(OpCodes.Ldelem_Ref);
+                            //il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
+                            //il.Emit(OpCodes.Box, typeof(Int32));
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_1);
+                            //il.Emit(OpCodes.Ldarg_0);
+                            //il.Emit(OpCodes.Ldc_I4_4);
+                            //il.Emit(OpCodes.Ldelem_Ref);
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Dup);
+                            //il.Emit(OpCodes.Ldc_I4_2);
+                            //il.Emit(OpCodes.Ldc_I4_1);
+                            //il.Emit(OpCodes.Box, typeof(Boolean));
+                            //il.Emit(OpCodes.Stelem_Ref);
+                            //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+                            //il.Emit(OpCodes.Pop);
+
+
+
+                            //break;
+                            il.Emit(OpCodes.Br, labBreakLoop);
+                        }
+                        il.MarkLabel(labNotOurType);
+
+                        // increment count
+                        il.Emit(OpCodes.Ldloc, 4);
+                        il.Emit(OpCodes.Ldc_I4_1);
+                        il.Emit(OpCodes.Add);
+                        il.Emit(OpCodes.Stloc, 4);
+
+                        il.MarkLabel(labIncLoop);
+                        il.Emit(OpCodes.Ldloc, 4);
+                        il.Emit(OpCodes.Ldloc_3);
+                        il.Emit(OpCodes.Ldlen);
+                        il.Emit(OpCodes.Conv_I4);
+                        il.Emit(OpCodes.Blt, labStartLoop);
+                    }
+                    il.MarkLabel(labBreakLoop);
                 }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
                 {
@@ -107,6 +293,7 @@ namespace UnitTestProject1
             }
             _type = typeBuilder.CreateType();
         }
+
 
         public void Create64BitExeUsingEmit(bool IncludeInvoke)
         {
@@ -385,9 +572,9 @@ namespace UnitTestProject1
                             if (IncludeInvoke)
                             {
                                 //methCollectDump.Invoke(memdumpHelper, argsToPass);
-                                il.Emit(OpCodes.Ldloc, 7);
-                                il.Emit(OpCodes.Ldloc, 8);
-                                il.Emit(OpCodes.Ldloc, 9);
+                                il.Emit(OpCodes.Ldloc, 7); // method
+                                il.Emit(OpCodes.Ldloc, 8); // instance
+                                il.Emit(OpCodes.Ldloc, 9); // args
                                 //il.Emit(OpCodes.Pop);
                                 //il.Emit(OpCodes.Pop);
                                 //il.Emit(OpCodes.Pop);
@@ -487,10 +674,10 @@ namespace UnitTestProject1
             // the Appdomain DefineDynamicAssembly has an overload for Dir
             var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Save, dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
-            _typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
-            var statTarg32bitDll = _typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
-            var statStringBuilder = _typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
-            var AsmResolveMethodBuilder = _typeBuilder.DefineMethod(
+            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+            var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+            var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
+            var AsmResolveMethodBuilder = typeBuilder.DefineMethod(
                 "CurrentDomain_AssemblyResolve",
                 MethodAttributes.Static,
                 returnType: typeof(Assembly),
@@ -502,7 +689,7 @@ namespace UnitTestProject1
 
                 il.Emit(OpCodes.Ret);
             }
-            var mainMethodBuilder = _typeBuilder.DefineMethod(
+            var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
                 returnType: null,
@@ -619,7 +806,7 @@ namespace UnitTestProject1
                 il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 il.Emit(OpCodes.Ret);
             }
-            _typeBuilder.CreateType();
+            typeBuilder.CreateType();
             assemblyBuilder.SetEntryPoint(mainMethodBuilder, PEFileKinds.WindowApplication);
             assemblyBuilder.Save($"{aName.Name}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
 

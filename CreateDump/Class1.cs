@@ -7,16 +7,16 @@ using System.Threading.Tasks;
 
 namespace CreateDump
 {
-    public class Class1
+    internal class Class1
     {
-        public static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap)
+        internal static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap)
         {
 
         }
-        public static int CollectDumpSimulatorNoArgs()
+        internal static int CollectDumpSimulatorNoArgs()
         {
             Debug.WriteLine($"in {nameof(CollectDumpSimulatorNoArgs)}");
-            Debug.Assert(false);
+//            Debug.Assert(false);
             return 1;
         }
     }

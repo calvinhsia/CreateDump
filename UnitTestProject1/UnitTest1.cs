@@ -24,8 +24,57 @@ namespace UnitTestProject1
             targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
         }
 
-        public void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap)
+        public static void myMain()
         {
+            var asm = Assembly.UnsafeLoadFrom(@"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe");
+            foreach (var typ in asm.GetTypes())
+            {
+                if (typ.Name == "Class1")
+                {
+//                    var obj = Activator.CreateInstance(typ);
+                    typ.GetMethod("CollectDumpSimulatorNoArgs", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
+
+                }
+            }
+            //var typ = asm.GetExportedTypes().Where(p => p.Name == "Class1").First();
+            //var obj = Activator.CreateInstance(typ);
+            //typ.GetMethod("CollectDumpSimulatorNoArgs").Invoke(null, null);
+        }
+
+        [TestMethod]
+        public void TesetDoSimpleMain()
+        {
+            //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
+            //myMain();
+            var TypeName = "MyType64";
+            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
+            File.Delete(targ64PEFile);
+            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+
+            File.Delete(tempOutputFile);
+            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
+            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            oBuilder.CreateSimpleAsm();
+
+            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
+            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+            var typ = Activator.CreateInstance(oBuilder._type);
+
+            var args = new string[] { 
+//                Assembly.GetExecutingAssembly().Location, 
+                targDumpCollectorFile,
+                nameof(Class1),
+                "aaCollectDumpSimulatorNoArgs",
+                procToDump.Id.ToString(),
+                tempOutputFile,
+            };
+            var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+            main.Invoke(null, new object[] { args });
+            Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
+            Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+            var txtResults = File.ReadAllText(tempOutputFile);
+            TestContext.WriteLine(txtResults);
 
         }
         [TestMethod]
