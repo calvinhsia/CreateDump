@@ -60,7 +60,7 @@ namespace UnitTestProject1
 
 
                 var labEnd = il.DefineLabel();
-//                il.Emit(OpCodes.Br, labEnd);
+                //                il.Emit(OpCodes.Br, labEnd);
                 il.BeginExceptionBlock();
                 {
                     //var asmprog32 = Assembly.LoadFrom(args[0]);
@@ -151,10 +151,11 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
                             il.Emit(OpCodes.Stloc, 10);
 
+                            bool sendStringBuilderAs4thParam = true;
 
 
                             //var argsToPass = new object[] { pidAsString, args[4], true };
-                            il.Emit(OpCodes.Ldc_I4_3); // size of array
+                            il.Emit(sendStringBuilderAs4thParam ? OpCodes.Ldc_I4_4 : OpCodes.Ldc_I4_3); // size of array
                             il.Emit(OpCodes.Newarr, typeof(Object));
                             il.Emit(OpCodes.Dup);
                             il.Emit(OpCodes.Stloc, 9);
@@ -181,6 +182,16 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Ldc_I4_1); // true
                             il.Emit(OpCodes.Box, typeof(Boolean));
                             il.Emit(OpCodes.Stelem_Ref);
+
+
+                            if (sendStringBuilderAs4thParam)
+                            {
+                                il.Emit(OpCodes.Dup);
+                                il.Emit(OpCodes.Ldc_I4_3); // elem[2]
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Stelem_Ref);
+
+                            }
 
                             for (int i = 0; i < 3; i++)
                             {
@@ -211,7 +222,7 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                             il.Emit(OpCodes.Pop);
 
-//                            if (false)
+                            //                            if (false)
                             {
                                 //methCollectDump.Invoke(memdumpHelper, argsToPass);
                                 il.Emit(OpCodes.Ldloc, 7); // method
@@ -239,8 +250,8 @@ namespace UnitTestProject1
                         }
                         il.MarkLabel(labNotOurType);
 
-                            // increment count
-                            il.Emit(OpCodes.Ldloc, 4);
+                        // increment count
+                        il.Emit(OpCodes.Ldloc, 4);
                         il.Emit(OpCodes.Ldc_I4_1);
                         il.Emit(OpCodes.Add);
                         il.Emit(OpCodes.Stloc, 4);
@@ -275,7 +286,7 @@ namespace UnitTestProject1
                 }
                 il.EndExceptionBlock();
                 il.MarkLabel(labEnd);
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                il.Emit(OpCodes.Ldsfld, statStringBuilder);
                 il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
                 il.Emit(OpCodes.Stloc_0);
                 il.Emit(OpCodes.Ldarg_0);
@@ -294,8 +305,8 @@ namespace UnitTestProject1
             var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
             // the Appdomain DefineDynamicAssembly has an overload for Dir
             _assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
-                aName, 
-                AssemblyBuilderAccess.RunAndSave, 
+                aName,
+                AssemblyBuilderAccess.RunAndSave,
                 dir: Path.GetDirectoryName(_targ64PEFile));
             var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);

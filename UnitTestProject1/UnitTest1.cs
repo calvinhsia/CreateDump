@@ -76,6 +76,9 @@ namespace UnitTestProject1
             Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
             var txtResults = File.ReadAllText(tempOutputFile);
             TestContext.WriteLine(txtResults);
+            Assert.IsTrue(txtResults.Contains("In simple asm"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
 
         }
         [TestMethod]
