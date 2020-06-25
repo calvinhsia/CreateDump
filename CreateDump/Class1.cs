@@ -8,19 +8,15 @@ using System.Threading.Tasks;
 
 namespace CreateDump
 {
-    internal class Class1
+    // these are same as MemoryDumpHelper
+    internal static class Class1
     {
-        internal static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap, StringBuilder sb)
+        public static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap, StringBuilder sb)
         {
-            sb.AppendLine($"Here i am {procid} {pathOutput} {FullHeap}");
-            Debug.WriteLine($"in {nameof(CollectDumpSimulatorNoArgs)}");
+            sb.AppendLine($"Here i am {DateTime.Now} {procid} {pathOutput} {FullHeap}");
+            sb.AppendLine($"This is coming from {Process.GetCurrentProcess().MainModule.FileName}");
+            sb.AppendLine($"Intptr.Size == { IntPtr.Size}");
             //            Debug.Assert(false);
-        }
-        internal static int CollectDumpSimulatorNoArgs()
-        {
-            Debug.WriteLine($"in {nameof(CollectDumpSimulatorNoArgs)}");
-//            Debug.Assert(false);
-            return 1;
         }
     }
 }
