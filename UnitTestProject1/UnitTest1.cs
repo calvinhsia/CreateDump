@@ -66,7 +66,7 @@ namespace UnitTestProject1
 //                Assembly.GetExecutingAssembly().Location, 
                 targDumpCollectorFile,
                 nameof(Class1),
-                "aaCollectDumpSimulatorNoArgs",
+                "CollectDumpSimulator",
                 procToDump.Id.ToString(),
                 tempOutputFile,
             };
