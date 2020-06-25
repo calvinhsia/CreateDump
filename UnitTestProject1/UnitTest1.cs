@@ -42,7 +42,7 @@ namespace UnitTestProject1
         }
 
         [TestMethod]
-        public void TesetDoSimpleMain()
+        public void TestDoSimpleMain()
         {
             //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
             //myMain();
@@ -58,9 +58,10 @@ namespace UnitTestProject1
             oBuilder.CreateSimpleAsm();
 
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
             var typ = Activator.CreateInstance(oBuilder._type);
 
+            //"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" Class1 CollectDumpSimulatorNoArgs 123 "C:\Users\calvinh\Documents\t.txt"
             var args = new string[] { 
 //                Assembly.GetExecutingAssembly().Location, 
                 targDumpCollectorFile,

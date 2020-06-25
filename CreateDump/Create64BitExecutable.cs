@@ -50,21 +50,24 @@ namespace UnitTestProject1
                 il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
                 il.DeclareLocal(typeof(object[])); // 9 argsToPass
                 il.DeclareLocal(typeof(Int32));//10 pidAsString
+                il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
+                il.Emit(OpCodes.Stsfld, statStringBuilder);
+
+                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                il.Emit(OpCodes.Ldstr, "In simple asm");
+                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+#if false
+                var labEnd = il.DefineLabel();
+                il.Emit(OpCodes.Br, labEnd);
                 il.BeginExceptionBlock();
                 {
-                    il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
-                    il.Emit(OpCodes.Stsfld, statStringBuilder);
-
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Ldstr, "In simple asm");
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
 
                     //var asmprog32 = Assembly.LoadFrom(args[0]);
                     il.Emit(OpCodes.Ldarg_0);
                     il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Ldelem_Ref);
-                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("UnsafeLoadFrom", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Stloc_2);
 
                     //foreach (var type in asmprog32.GetExportedTypes())
@@ -197,18 +200,18 @@ namespace UnitTestProject1
 //                            if (false)
                             {
                                 //methCollectDump.Invoke(memdumpHelper, argsToPass);
-                                il.Emit(OpCodes.Ldloc, 7); // method
+                                //il.Emit(OpCodes.Ldloc, 7); // method
                                 //il.Emit(OpCodes.Ldloc, 8); // instance
                                 //il.Emit(OpCodes.Ldloc, 9); // args
                                 //il.Emit(OpCodes.Pop);
                                 //il.Emit(OpCodes.Pop);
                                 //il.Emit(OpCodes.Pop);
-                                il.Emit(OpCodes.Ldnull);
-                                il.Emit(OpCodes.Ldnull);
-                                il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
+                                //il.Emit(OpCodes.Ldnull);
+                                //il.Emit(OpCodes.Ldnull);
+                                //il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
                             }
 
-                            il.Emit(OpCodes.Pop);
+                            //il.Emit(OpCodes.Pop);
 
 
                             ////methCollectDump.Invoke(memdumpHelper, new object[] { int.Parse(args[3]), args[4], true });
@@ -280,7 +283,8 @@ namespace UnitTestProject1
                     il.Emit(OpCodes.Pop);
                 }
                 il.EndExceptionBlock();
-
+                il.MarkLabel(labEnd);
+#endif
                 il.Emit(OpCodes.Ldsfld, statStringBuilder);
                 il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
                 il.Emit(OpCodes.Stloc_0);
