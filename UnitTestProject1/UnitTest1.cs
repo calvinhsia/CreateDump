@@ -254,6 +254,9 @@ namespace UnitTestProject1
             }
         }
 
+        // this test sometimes fails when run in group. Succeeds when run individually
+        //Test method UnitTestProject1.UnitTest1.TestGenerate64BitDumpFromExeInResource threw exception: 
+        //  System.Exception: The component 'CreateDump.MainWindow' does not have a resource identified by the URI '/CreateDump;component/mainwindow.xaml'.
         [TestMethod]
         public void TestGenerate64BitDumpFromExeInResource()
         {
@@ -262,8 +265,7 @@ namespace UnitTestProject1
             var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
             var proc = Process.GetProcessesByName(procToDump)[0];
             TestContext.WriteLine($"Dumping {procToDump} {proc}");
-            var ox = new MainWindow();
-            ox.Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
+            MainWindow.Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
             Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
             var dumpSize = new FileInfo(dumpFilename).Length;
             TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");

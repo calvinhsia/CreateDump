@@ -24,16 +24,14 @@ namespace CreateDump
         public MainWindow()
         {
             InitializeComponent();
-            this.Loaded += MainWindow_Loaded;
-        }
-
-        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            await Task.Yield();
             this.Top = 0;
             this.Left = 0;
             this.Width = 800;
             this.Height = 500;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
             try
             {
                 // use 32 bit task manager to dump 64 bit process. Result is quick exit with file length ==0
@@ -82,7 +80,7 @@ namespace CreateDump
             }
         }
 
-        internal void Get64BitDumpFromExeInResource(Process proc, string dumpFilename, bool fIncludeFullHeap)
+        internal static void Get64BitDumpFromExeInResource(Process proc, string dumpFilename, bool fIncludeFullHeap)
         {
             try
             {
@@ -92,7 +90,7 @@ namespace CreateDump
                 var procDump64 = Process.Start(tempExeFileName, args );
                 procDump64.Exited += (o, e) =>
                 {
-                    this.Content = "procexited";
+//                    this.Content = "procexited";
                 };
                 while (!procDump64.HasExited)
                 {
