@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using CreateDump;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Performance.ResponseTime;
 
 namespace UnitTestProject1
 {
@@ -24,25 +25,9 @@ namespace UnitTestProject1
             targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
         }
 
-        public static void myMain()
-        {
-            var asm = Assembly.UnsafeLoadFrom(@"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe");
-            foreach (var typ in asm.GetTypes())
-            {
-                if (typ.Name == "Class1")
-                {
-//                    var obj = Activator.CreateInstance(typ);
-                    typ.GetMethod("CollectDumpSimulatorNoArgs", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
-
-                }
-            }
-            //var typ = asm.GetExportedTypes().Where(p => p.Name == "Class1").First();
-            //var obj = Activator.CreateInstance(typ);
-            //typ.GetMethod("CollectDumpSimulatorNoArgs").Invoke(null, null);
-        }
-
+#if Debug
         [TestMethod]
-        public void TesetDoSimpleMain()
+        public void TestDoSimpleMain()
         {
             //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
             //myMain();
@@ -50,22 +35,25 @@ namespace UnitTestProject1
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
             File.Delete(targ64PEFile);
+
+            // the output files are constant so that they can be seen via tools very quickly just by reloading
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.CreateSimpleAsm();
 
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
             var typ = Activator.CreateInstance(oBuilder._type);
 
+            //"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" Class1 CollectDumpSimulatorNoArgs 123 "C:\Users\calvinh\Documents\t.txt"
             var args = new string[] { 
 //                Assembly.GetExecutingAssembly().Location, 
                 targDumpCollectorFile,
                 nameof(Class1),
-                "aaCollectDumpSimulatorNoArgs",
+                "CollectDumpSimulator",
                 procToDump.Id.ToString(),
                 tempOutputFile,
             };
@@ -75,174 +63,105 @@ namespace UnitTestProject1
             Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
             var txtResults = File.ReadAllText(tempOutputFile);
             TestContext.WriteLine(txtResults);
-
+            Assert.IsTrue(txtResults.Contains("In simple asm"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
         }
+#endif
+
         [TestMethod]
-        public void TestMakeAs32()
+        public void TestMakeAsm()
         {
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            // make it work with tempfilenames
+//            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            var targ64PEFile = Path.ChangeExtension(Path.GetTempFileName(), "exe");
+            var TypeName = Path.GetFileNameWithoutExtension(targ64PEFile);
             var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
 
-            //var ttasm = Assembly.LoadFrom(targDumpCollectorFile);
-            //foreach (var ttyp in ttasm.GetExportedTypes())
-            //{
-            //    TestContext.WriteLine($"{ttyp.Name}");
-            //}
-            //var meth = ttasm.GetExportedTypes().Where(p => p.Name == "Class1").First().GetMethod("CollectDumpSimulatorNoArgs");
-            //meth.Invoke(null, null);
-
             File.Delete(targ64PEFile);
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.Create64BitExeUsingEmit(IncludeInvoke: false);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
+            oBuilder.Create64BitExeUsingEmit(logOutput: true);
 
+            var testInProc = false;
+            if (testInProc)
+            {
+                var typ = Activator.CreateInstance(oBuilder._type);
 
-            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+                var args = new string[] {
+                    targDumpCollectorFile,
+                    nameof(Class1),
+                    "CollectDumpSimulator",
+                    procToDump.Id.ToString(),
+                    tempOutputFile,
+                };
+                var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+                main.Invoke(null, new object[] { args });
+            }
+            else
+            {
+                oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
+                oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+                var p64 = Process.Start(
+                    targ64PEFile,
+                    $@"""{targDumpCollectorFile}"" {nameof(Class1)} CollectDumpSimulator {procToDump.Id} ""{tempOutputFile}""");
+                if (p64.WaitForExit(10 * 1000))
+                {
 
-
-            var typ = Activator.CreateInstance(oBuilder._type);
-
-            var args = new string[] { 
-//                Assembly.GetExecutingAssembly().Location, 
-                targDumpCollectorFile,
-                nameof(Class1),
-                "CollectDumpSimulatorNoArgs",
-                procToDump.Id.ToString(),
-                tempOutputFile,
-            };
-            var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
-            main.Invoke(null, new object[] { args });
+                }
+                else
+                {
+                    Assert.Fail($"Process took too long {targ64PEFile}");
+                }
+            }
             Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
             Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
             var txtResults = File.ReadAllText(tempOutputFile);
             TestContext.WriteLine(txtResults);
-            Assert.IsTrue(txtResults.Contains("In 64 bit exe"), "Content not as expected");
-
-
-            //oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            //oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
-
+            Assert.IsTrue(txtResults.Contains("In Generated Dynamic Assembly"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("Asm ResolveEvents events subscribed"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
+            Assert.IsTrue(IntPtr.Size == 4, "Running on 32 bit process");
+            if (!testInProc)
+            {
+                Assert.IsTrue(txtResults.Contains("Intptr.Size == 8"), "Content not as expected");
+                Assert.IsTrue(txtResults.Contains("Running in 64 bit Generated Assembly"), "Content not as expected");
+            }
+            else
+            {
+                Assert.IsTrue(txtResults.Contains("Intptr.Size == 4"), "Content not as expected");
+            }
+            Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
         }
 
         [TestMethod]
-        public void TestLoad64()
+        public void TestGet64BitDump()
         {
             var TypeName = "MyType64";
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.Create64BitExeUsingEmit(IncludeInvoke: false);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
+            oBuilder.Create64BitExeUsingEmit(logOutput: false);
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
             oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
 
             Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
+            var tempOutputFile = @"C:\Users\calvinh\Documents\t.dmp";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var p64 = Process.Start(targ64PEFile, $@"""{targ32bitDll}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{tempOutputFile}""");
+            var p64 = Process.Start(
+                targ64PEFile,
+                $@"""{targ32bitDll}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{tempOutputFile}""");
             if (p64.WaitForExit(10 * 1000))
             {
                 Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("In 64 bit exe"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("Asm ResolveEvents"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("PrivateAssemblies"), "Content not as expected");
-
-                Assert.IsTrue(txtResults.Contains("IsVsTelem"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("IsJson"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("MemoryDumpHelper"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("GotOurType"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("GotOurType"), "Content not as expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {targ64PEFile}");
-            }
-        }
-
-
-
-
-        [TestMethod]
-        public void TestEmit()
-        {
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.TestCreate64BitExeUsingEmit();
-
-            Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            // try with invalid arg count
-
-            File.Delete(tempOutputFile);
-            var p64 = Process.Start(targ64PEFile, $@"{tempOutputFile} 2ndArg ""Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a""");
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("2ndArg"), "Content not as expected");
-                Assert.IsTrue(txtResults.Contains("IsVsTelem"), "Content not as expected");
-
-                Assert.IsTrue(txtResults.Contains("string in static field"), "Content not as expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {targ64PEFile}");
-            }
-        }
-
-
-        [TestMethod]
-        public void TestEmitExceptionHandler()
-        {
-            //            (var Temp64TargetFile, var tempOutputFile) = DoBuildAsm();
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.TestCreate64BitExeUsingEmit();
-            Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            // try with invalid arg count
-
-            File.Delete(tempOutputFile);
-            var p64 = Process.Start(targ64PEFile, tempOutputFile);
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."), "Content not as expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {targ64PEFile}");
-            }
-            p64 = Process.Start(targ64PEFile, $"{tempOutputFile} 2ndArg 3rd Arg");
-            File.Delete(tempOutputFile);
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("2ndArg"), "Content not as expected");
+                var finfo = new FileInfo(tempOutputFile);
+                Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {tempOutputFile}");
             }
             else
             {
@@ -258,8 +177,7 @@ namespace UnitTestProject1
             var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
             var proc = Process.GetProcessesByName(procToDump)[0];
             TestContext.WriteLine($"Dumping {procToDump} {proc}");
-            var ox = new MainWindow();
-            ox.Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
+            MainWindow.Get64BitDumpFromExeInResource(proc, dumpFilename, fIncludeFullHeap: true);
             Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
             var dumpSize = new FileInfo(dumpFilename).Length;
             TestContext.WriteLine($"Dump Size  = {dumpSize:n0}");
@@ -297,8 +215,8 @@ namespace UnitTestProject1
                 if (typ.Name == "MemoryDumpHelper")
                 {
                     var methCollectDump = typ.GetMethod("CollectDump");
-                    var memdumpHelper = Activator.CreateInstance(typ);
-                    methCollectDump.Invoke(memdumpHelper, new object[] { proc.Id, dumpFilename, true });
+                    //                    var memdumpHelper = Activator.CreateInstance(typ); static, so don't need to create
+                    methCollectDump.Invoke(null, new object[] { proc.Id, dumpFilename, true });
                     break;
                 }
             }

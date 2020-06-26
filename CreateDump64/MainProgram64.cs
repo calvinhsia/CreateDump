@@ -91,10 +91,10 @@ Signed    : 0
                     if (type.Name == args[1])
                     {
                         var methCollectDump = type.GetMethod(args[2]);
-//                        var memdumpHelper = Activator.CreateInstance(type);
+                        var memdumpHelper = Activator.CreateInstance(type);
                         var pidAsString = int.Parse(args[3]);
                         var argsToPass = new object[] {pidAsString, args[4], true };
-                        methCollectDump.Invoke(null, argsToPass);
+                        methCollectDump.Invoke(memdumpHelper, argsToPass);
                         break;
                     }
                 }
