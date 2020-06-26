@@ -16,6 +16,10 @@ namespace CreateDump
             sb.AppendLine($"Here i am {DateTime.Now} {procid} {pathOutput} {FullHeap}");
             sb.AppendLine($"This is coming from {Process.GetCurrentProcess().MainModule.FileName}");
             sb.AppendLine($"Intptr.Size == { IntPtr.Size}");
+            if (IntPtr.Size == 8)
+            {
+                sb.AppendLine("Running in 64 bit Generated Assembly");
+            }
             //            Debug.Assert(false);
         }
     }

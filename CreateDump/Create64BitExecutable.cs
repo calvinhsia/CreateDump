@@ -265,7 +265,7 @@ namespace UnitTestProject1
         }
 
 
-        public void Create64BitExeUsingEmit(bool sendStringBuilderAs4thParam)
+        public void Create64BitExeUsingEmit(bool logOutput)
         {
             var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
             // the Appdomain DefineDynamicAssembly has an overload for Dir
@@ -485,7 +485,7 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Stloc, 10);
 
                             //var argsToPass = new object[] { pidAsString, args[4], true };
-                            il.Emit(sendStringBuilderAs4thParam ? OpCodes.Ldc_I4_4 : OpCodes.Ldc_I4_3); // size of array
+                            il.Emit(logOutput ? OpCodes.Ldc_I4_4 : OpCodes.Ldc_I4_3); // size of array
                             il.Emit(OpCodes.Newarr, typeof(Object));
                             il.Emit(OpCodes.Stloc, 9);
 
@@ -508,7 +508,7 @@ namespace UnitTestProject1
                             il.Emit(OpCodes.Box, typeof(Boolean));
                             il.Emit(OpCodes.Stelem_Ref);
 
-                            if (sendStringBuilderAs4thParam)
+                            if (logOutput)
                             {
                                 il.Emit(OpCodes.Ldloc, 9);
                                 il.Emit(OpCodes.Ldc_I4_3); // elem[2]
@@ -606,14 +606,17 @@ namespace UnitTestProject1
                 }
                 il.EndExceptionBlock();
 
-                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-                il.Emit(OpCodes.Stloc_0);
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldc_I4, 4);
-                il.Emit(OpCodes.Ldelem_Ref);
-                il.Emit(OpCodes.Ldloc_0);
-                il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                if (logOutput)
+                {
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                    il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                    il.Emit(OpCodes.Stloc_0);
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldc_I4, 4);
+                    il.Emit(OpCodes.Ldelem_Ref);
+                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                }
                 il.Emit(OpCodes.Ret);
             }
             _type = typeBuilder.CreateType();
