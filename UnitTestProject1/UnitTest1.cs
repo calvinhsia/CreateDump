@@ -72,8 +72,10 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestMakeAsm()
         {
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            // make it work with tempfilenames
+//            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            var targ64PEFile = Path.ChangeExtension(Path.GetTempFileName(), "exe");
+            var TypeName = Path.GetFileNameWithoutExtension(targ64PEFile);
             var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
 
             File.Delete(targ64PEFile);
