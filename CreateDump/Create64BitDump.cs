@@ -7,12 +7,13 @@ using System.Text;
 namespace Microsoft.Performance.ResponseTime
 {
     /// <summary>
-    /// Emits an Asm that can be made into a 64 bit executable
+    /// Taking a process dump of a 64 bit process from a 32 bit process doesn't work. Even from 32 bit task manager.
+    /// This code emits an Asm that can be made into a 64 bit executable
     /// The goal is to call a static method in PerfWatson in an internal static class MemoryDumpHelper with the signature:
     ///           public static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap)
     /// The generated asm can be saved as an exe on disk, then started from 32 bit code. 
     ///  A little wrinkle: in order to enumerate the types in the DLL, the Appdomain AsemblyResolver needs to find the dependencies
-    /// The 64 bit process It will then load the 32 bit PW IL (using the assembly resolver, then invoke the method via reflection)
+    /// The 64 bit process will then load the 32 bit PW IL (using the assembly resolver, then invoke the method via reflection)
     /// the parameters are pased to the 64 bit exe on the commandline.
     /// This code logs output to the output file (which is the dump file when called with logging false)
     /// The code generates a static Main (string[] args) method.
@@ -31,7 +32,7 @@ namespace Microsoft.Performance.ResponseTime
             _targ64PEFile = targ64PEFile;
             _TypeName = TypeName;
         }
-        public void Create64BitExeUsingEmit(bool logOutput)
+        public void Create64BitExeUsingEmit(bool logOutput, bool CauseException = false)
         {
             var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
             // the Appdomain DefineDynamicAssembly has an overload for Dir
@@ -154,6 +155,14 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Ldstr, "In Generated Dynamic Assembly");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Pop);
+
+
+                    if (CauseException)
+                    {
+                        il.Emit(OpCodes.Ldnull);
+                        il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
+                    }
 
                     //targ32bitDll = args[0];
                     il.Emit(OpCodes.Ldarg_0);
@@ -177,6 +186,7 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events subscribed");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Pop);
 
                     //foreach (var type in asmprog32.GetExportedTypes())
                     il.Emit(OpCodes.Ldloc_2);
@@ -357,6 +367,18 @@ namespace Microsoft.Performance.ResponseTime
                 }
                 il.EndExceptionBlock();
 
+                //AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
+                il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
+                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ldftn, AsmResolveMethodBuilder);
+                il.Emit(OpCodes.Newobj, typeof(ResolveEventHandler).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
+                il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetRemoveMethod());
+
+                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events Unsubscribed");
+                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                il.Emit(OpCodes.Pop);
+
                 if (logOutput)
                 {
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
@@ -373,7 +395,7 @@ namespace Microsoft.Performance.ResponseTime
             _type = typeBuilder.CreateType();
         }
 
-#if Debug
+#if DEBUG
         // this is just test code
         public void CreateSimpleAsm()
         {

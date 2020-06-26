@@ -25,7 +25,7 @@ namespace UnitTestProject1
             targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
         }
 
-#if Debug
+#if DEBUG
         [TestMethod]
         public void TestDoSimpleMain()
         {
@@ -67,13 +67,55 @@ namespace UnitTestProject1
             Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
             Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
         }
+
+        [TestMethod]
+        public void TestGenWithException()
+        {
+            //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
+            //myMain();
+            var TypeName = "MyType64";
+            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
+            File.Delete(targ64PEFile);
+
+            // the output files are constant so that they can be seen via tools very quickly just by reloading
+            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+
+            File.Delete(tempOutputFile);
+            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
+            oBuilder.Create64BitExeUsingEmit(logOutput: true, CauseException: true);
+
+            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
+            oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
+            var typ = Activator.CreateInstance(oBuilder._type);
+
+            //"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" Class1 CollectDumpSimulatorNoArgs 123 "C:\Users\calvinh\Documents\t.txt"
+            var args = new string[] { 
+//                Assembly.GetExecutingAssembly().Location, 
+                targDumpCollectorFile,
+                nameof(Class1),
+                "CollectDumpSimulator",
+                procToDump.Id.ToString(),
+                tempOutputFile,
+            };
+            var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+            main.Invoke(null, new object[] { args });
+            Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
+            Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+            var txtResults = File.ReadAllText(tempOutputFile);
+            TestContext.WriteLine(txtResults);
+            Assert.IsTrue(txtResults.Contains("In Generated Dynamic Assembly"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("System.NullReferenceException: Object reference not set to an instance of an object."), "Content not as expected");
+        }
+
 #endif
 
         [TestMethod]
         public void TestMakeAsm()
         {
             // make it work with tempfilenames
-//            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
+            //            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             var targ64PEFile = Path.ChangeExtension(Path.GetTempFileName(), "exe");
             var TypeName = Path.GetFileNameWithoutExtension(targ64PEFile);
             var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
@@ -135,6 +177,7 @@ namespace UnitTestProject1
                 Assert.IsTrue(txtResults.Contains("Intptr.Size == 4"), "Content not as expected");
             }
             Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
+            Assert.IsTrue(txtResults.Contains("Asm ResolveEvents events Unsubscribed"), "Content not as expected");
         }
 
         [TestMethod]
