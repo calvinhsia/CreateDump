@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using CreateDump;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Performance.ResponseTime;
 
 namespace UnitTestProject1
 {
@@ -24,6 +25,7 @@ namespace UnitTestProject1
             targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
         }
 
+#if Debug
         [TestMethod]
         public void TestDoSimpleMain()
         {
@@ -33,11 +35,13 @@ namespace UnitTestProject1
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
             File.Delete(targ64PEFile);
+
+            // the output files are constant so that they can be seen via tools very quickly just by reloading
             var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.CreateSimpleAsm();
 
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
@@ -62,8 +66,9 @@ namespace UnitTestProject1
             Assert.IsTrue(txtResults.Contains("In simple asm"), "Content not as expected");
             Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
             Assert.IsTrue(txtResults.Contains("back from call"), "Content not as expected");
-
         }
+#endif
+
         [TestMethod]
         public void TestMakeAsm()
         {
@@ -76,7 +81,7 @@ namespace UnitTestProject1
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit(logOutput: true);
 
             var testInProc = false;
@@ -136,7 +141,7 @@ namespace UnitTestProject1
             var TypeName = "MyType64";
             var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
+            var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit(logOutput: false);
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
             oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
@@ -162,53 +167,6 @@ namespace UnitTestProject1
             }
         }
 
-        [TestMethod]
-        public void TestEmitExceptionHandler()
-        {
-            //            (var Temp64TargetFile, var tempOutputFile) = DoBuildAsm();
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            File.Delete(targ64PEFile);
-            var oBuilder = new Create64Bit(targ64PEFile, TypeName);
-            oBuilder.TestCreate64BitExeUsingEmit();
-            Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            // try with invalid arg count
-
-            File.Delete(tempOutputFile);
-            var p64 = Process.Start(targ64PEFile, tempOutputFile);
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("System.IndexOutOfRangeException: Index was outside the bounds of the array."), "Content not as expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {targ64PEFile}");
-            }
-            p64 = Process.Start(targ64PEFile, $"{tempOutputFile} 2ndArg 3rd Arg");
-            File.Delete(tempOutputFile);
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(tempOutputFile), $"Output file not found {tempOutputFile}");
-                Assert.IsTrue(new FileInfo(tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var txtResults = File.ReadAllText(tempOutputFile);
-                TestContext.WriteLine(txtResults);
-                Assert.IsTrue(txtResults.Contains("2ndArg"), "Content not as expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {targ64PEFile}");
-            }
-        }
-
-        // this test sometimes fails when run in group. Succeeds when run individually
-        //Test method UnitTestProject1.UnitTest1.TestGenerate64BitDumpFromExeInResource threw exception: 
-        //  System.Exception: The component 'CreateDump.MainWindow' does not have a resource identified by the URI '/CreateDump;component/mainwindow.xaml'.
         [TestMethod]
         public void TestGenerate64BitDumpFromExeInResource()
         {
