@@ -14,8 +14,13 @@ namespace UnitTestProject1
     public class UnitTest1
     {
         public TestContext TestContext { get; set; }
+        string tempOutputFile;
 
         string targ32bitDll;
+        readonly string TypeName = "MyType64";
+        string targ64PEFile;
+        string targDumpCollectorFile = @"CreateDump.exe";//@"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
+
         [TestInitialize]
         public void Init()
         {
@@ -23,6 +28,12 @@ namespace UnitTestProject1
             TestContext.WriteLine(curexe);
             // C:\Program Files (x86)\Microsoft Visual Studio\2019\Preview\Common7\IDE\Extensions\TestPlatform\testhost.x86.exe
             targ32bitDll = new FileInfo(Path.Combine(curexe, @"..\..\..", "Microsoft.VisualStudio.PerfWatson.dll")).FullName;
+
+            // the output files are constant so that they can be seen via tools very quickly just by reloading
+            tempOutputFile =Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), @"t.txt");// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+            File.Delete(tempOutputFile);
+            targ64PEFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), $@"{TypeName}.exe");
+            File.Delete(targ64PEFile);
         }
 
 #if DEBUG
@@ -31,15 +42,7 @@ namespace UnitTestProject1
         {
             //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
             //myMain();
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
-            File.Delete(targ64PEFile);
 
-            // the output files are constant so that they can be seen via tools very quickly just by reloading
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
             var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.CreateSimpleAsm();
@@ -73,15 +76,6 @@ namespace UnitTestProject1
         {
             //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
             //myMain();
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
-            File.Delete(targ64PEFile);
-
-            // the output files are constant so that they can be seen via tools very quickly just by reloading
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
             var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit(logOutput: true, CauseException: true);
@@ -118,12 +112,7 @@ namespace UnitTestProject1
             //            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             var targ64PEFile = Path.ChangeExtension(Path.GetTempFileName(), "exe");
             var TypeName = Path.GetFileNameWithoutExtension(targ64PEFile);
-            var targDumpCollectorFile = @"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
 
-            File.Delete(targ64PEFile);
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.txt";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
-
-            File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
             var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit(logOutput: true);
@@ -183,16 +172,13 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestGet64BitDump()
         {
-            var TypeName = "MyType64";
-            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
-            File.Delete(targ64PEFile);
             var oBuilder = new Create64BitDump(targ64PEFile, TypeName);
             oBuilder.Create64BitExeUsingEmit(logOutput: false);
             oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
             oBuilder._assemblyBuilder.Save($"{TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
 
             Assert.IsTrue(File.Exists(targ64PEFile), $"Built EXE not found {targ64PEFile}");
-            var tempOutputFile = @"C:\Users\calvinh\Documents\t.dmp";// Path.ChangeExtension(Path.GetTempFileName(), "txt");
+            tempOutputFile = Path.ChangeExtension(tempOutputFile, ".dmp");
 
             File.Delete(tempOutputFile);
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
