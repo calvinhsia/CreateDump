@@ -52,6 +52,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="TestCreateAsm.cs" />
     <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -59,6 +60,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\CreateAsm\CreateAsm.csproj">
+      <Project>{2c7ddbba-2091-43ca-be5f-611312248ad1}</Project>
+      <Name>CreateAsm</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CreateDump\CreateDump.csproj">
       <Project>{b6161a00-8373-4c87-8efe-17a3d1d2acf6}</Project>
       <Name>CreateDump</Name>

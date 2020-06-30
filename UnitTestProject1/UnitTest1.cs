@@ -55,7 +55,7 @@ namespace UnitTestProject1
             var args = new string[] { 
 //                Assembly.GetExecutingAssembly().Location, 
                 _targSimDumpCollectorFile,
-                nameof(Class1),
+                nameof(Simulator),
                 "CollectDumpSimulator",
                 procToDump.Id.ToString(),
                 _tempOutputFile,
@@ -88,7 +88,7 @@ namespace UnitTestProject1
             var args = new string[] { 
 //                Assembly.GetExecutingAssembly().Location, 
                 _targSimDumpCollectorFile,
-                nameof(Class1),
+                nameof(Simulator),
                 "CollectDumpSimulator",
                 procToDump.Id.ToString(),
                 _tempOutputFile,
@@ -106,14 +106,14 @@ namespace UnitTestProject1
 #endif
 
         [TestMethod]
-        public void TestMakeAsm()
+        public void TestMakeSimpleAsm()
         {
             // make it work with tempfilenames
             //            var targ64PEFile = $@"c:\users\calvinh\{TypeName}.exe";
             var targ64PEFile = Path.ChangeExtension(Path.GetTempFileName(), "exe");
             _TypeName = Path.GetFileNameWithoutExtension(targ64PEFile);
 
-            makeAsmHelper(targ64PEFile, _TypeName, _targSimDumpCollectorFile, nameof(Class1), "CollectDumpSimulator", testInProc: false, AdditionalAsserts: (txtResults) =>
+            makeAsmHelper(targ64PEFile, _TypeName, _targSimDumpCollectorFile, nameof(Simulator), "CollectDumpSimulator", testInProc: false, AdditionalAsserts: (txtResults) =>
              {
                  Assert.IsTrue(txtResults.Contains("Here i am "), "Content not as expected");
                  Assert.IsTrue(txtResults.Contains("Intptr.Size == 8"), "Content not as expected");

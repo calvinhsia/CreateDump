@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace CreateDump
 {
     // these are same as MemoryDumpHelper
-    internal static class Class1
+    internal static class Simulator
     {
         public static void CollectDumpSimulator(int procid, string pathOutput, bool FullHeap, StringBuilder sb)
         {
