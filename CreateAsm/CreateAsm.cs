@@ -14,15 +14,22 @@ namespace CreateAsm
     /// </summary>
     public class AssemblyCreator
     {
-        public AssemblyCreator()
+        public AssemblyCreator(string _tempExeName)
         {
 
+        }
+
+        public void CreateAssembly()
+        {
+            throw new NotImplementedException();
         }
     }
 
     public static class TargetStaticClass
     {
-        static string outputFile = @"C:\Users\calvinh\Documents\MyTestAsm.log";
+        public static string outputFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "MyTestAsm.log");
         static StringBuilder sb = new StringBuilder();
         public static void MyStaticMethodWithNoParams()
         {
@@ -40,11 +47,12 @@ namespace CreateAsm
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
-        public static void MyStaticMethodWith3Param(string param1)
+        public static void MyStaticMethodWith3Param(string param1, int param2, bool param3)
         {
             sb.AppendLine($"{DateTime.Now}");
             sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWith3Param)}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
+            sb.AppendLine($"parm1== {param1} parm2 = {param2} parm3={param3}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
@@ -52,16 +60,16 @@ namespace CreateAsm
 
     public class TargetClass
     {
-        string outputFile = @"C:\Users\calvinh\Documents\MyTestAsm.log";
+        //        string outputFile = @"C:\Users\calvinh\Documents\MyTestAsm.log";
+        string outputFile => TargetStaticClass.outputFile;
         StringBuilder sb = new StringBuilder();
         public void MyMethodWith1Param(string param1)
         {
             sb.AppendLine($"{DateTime.Now}");
-            sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyMethodWith1Param)}");
+            sb.AppendLine($"Here I am in {nameof(TargetClass)} {nameof(MyMethodWith1Param)}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
     }
-
 }
