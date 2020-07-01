@@ -36,6 +36,7 @@ namespace UnitTestProject1
             File.Delete(_tempExeName);
             File.Delete(_tempOutputFile);
             _typeName = Path.GetFileNameWithoutExtension(_tempExeName);
+            File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {nameof(TestInvokeViaCreatedAssembly)}\r\n");
         }
         [TestMethod]
         public void TestInvokeDirectly()
@@ -56,7 +57,7 @@ namespace UnitTestProject1
                 typeof(AssemblyCreator).Assembly.Location,
                 nameof(TargetStaticClass),
                 nameof(TargetStaticClass.MyStaticMethodWith3Param),
-                targArgs: new string[] { _tempOutputFile, "123", "true" });
+                targArgs: new string[] { "123", _tempOutputFile, "true" });
 
             var result = File.ReadAllText(_tempOutputFile);
             TestContext.WriteLine(result);
@@ -64,25 +65,70 @@ namespace UnitTestProject1
 
             Assert.IsTrue(result.Contains("Here I am in TargetClass MyPrivateMethodWith1Param"), "Test content expected");
 
-            Assert.IsTrue(result.Contains("parm2 = 123 parm3=True"), "Test content expected");
+            Assert.IsTrue(result.Contains("parm1== 123"), "Test content expected");
+
+            Assert.IsTrue(result.Contains("parm3=True"), "Test content expected");
 
             Assert.IsTrue(result.Contains("IntPtr.Size == 4"), "Test content expected");
         }
 
         [TestMethod]
+        public void TestInvokePWViaCreatedAssembly()
+        {
+            _tempOutputFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
+
+            var type = new AssemblyCreator().CreateAssembly(
+                _tempExeName,
+                PortableExecutableKinds.PE32Plus,
+                ImageFileMachine.AMD64,
+                "PrivateAssemblies",
+                logOutput: false
+            );
+            Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
+
+            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
+
+            var targDllToRun = _targ32bitPWDll;
+            var p64 = Process.Start(
+                _tempExeName,
+                $@"""{targDllToRun}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{_tempOutputFile}"" true");
+            if (p64.WaitForExit(10 * 1000))
+            {
+                Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
+                var finfo = new FileInfo(_tempOutputFile);
+                Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                Assert.IsTrue(finfo.Length > 200 * 1000 * 1000, "Dump should be big");
+                TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {_tempOutputFile}");
+
+
+
+                //Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
+                //var result = File.ReadAllText(_tempOutputFile);
+                //TestContext.WriteLine(result);
+                //Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
+                //Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
+                //Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
+                //Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
+                //Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we're in a 64 bit process");
+                //Assert.IsTrue(result.Contains("back from call"), "Test content expected");
+
+                //Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
+            }
+            else
+            {
+                Assert.Fail($"Process took too long {_tempExeName}");
+            }
+        }
+
+        [TestMethod]
         public void TestInvokeViaCreatedAssembly()
         {
-            File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {nameof(TestInvokeViaCreatedAssembly)}\r\n");
             var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
                 "PrivateAssemblies",
                 logOutput:true
-                //typeof(AssemblyCreator).Assembly.Location,
-                //nameof(TargetStaticClass),
-                //nameof(TargetStaticClass.MyStaticMethodWith3Param),
-                //targArgs: new string[] { "parm1", "123", "true" }
             );
             Assert.IsTrue(File.Exists(_tempExeName),"generated asm not found");
 
@@ -102,9 +148,12 @@ namespace UnitTestProject1
                 TestContext.WriteLine(result);
                 Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
                 Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
+                Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
+                Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
+                Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we're in a 64 bit process");
+                Assert.IsTrue(result.Contains("back from call"), "Test content expected");
+
                 Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
-
-
             }
             else
             {
