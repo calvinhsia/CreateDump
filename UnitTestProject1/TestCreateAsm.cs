@@ -72,47 +72,55 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestInvokeViaCreatedAssembly()
         {
-            var ocreateAsm = new AssemblyCreator();
-            var type = ocreateAsm.CreateAssembly(
+            File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {nameof(TestInvokeViaCreatedAssembly)}\r\n");
+            var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                "",
-                typeof(AssemblyCreator).Assembly.Location,
-                nameof(TargetStaticClass),
-                nameof(TargetStaticClass.MyStaticMethodWith3Param),
-                targArgs: new string[] { "parm1", "123", "true" }
+                "PrivateAssemblies",
+                logOutput:true
+                //typeof(AssemblyCreator).Assembly.Location,
+                //nameof(TargetStaticClass),
+                //nameof(TargetStaticClass.MyStaticMethodWith3Param),
+                //targArgs: new string[] { "parm1", "123", "true" }
             );
+            Assert.IsTrue(File.Exists(_tempExeName),"generated asm not found");
 
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
 
+            var targDllToRun = _targ32bitPWDll;
+            targDllToRun = typeof(AssemblyCreator).Assembly.Location;
             var p64 = Process.Start(
                 _tempExeName,
-                $@"""{_targ32bitPWDll}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{_tempOutputFile}""");
+                $@"""{targDllToRun}"" {nameof(TargetStaticClass)} {nameof(TargetStaticClass.MyStaticMethodWith3Param)} {procToDump.Id} ""{_tempOutputFile}"" true");
             if (p64.WaitForExit(10 * 1000))
             {
                 Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
                 var finfo = new FileInfo(_tempOutputFile);
                 Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                Assert.IsTrue(finfo.Length > 200 * 1000 * 1000, "Dump should be big");
-                TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {_tempOutputFile}");
+                var result = File.ReadAllText(_tempOutputFile);
+                TestContext.WriteLine(result);
+                Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
+                Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
+                Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
+
+
             }
             else
             {
                 Assert.Fail($"Process took too long {_tempExeName}");
             }
-
         }
 
         /// <summary>
-        /// Want to invoke this assembly, type, method with these args.
+        /// Want to start an executable with this assembly with these args.
         /// The output log is solely for debugging.
         /// note: may need AssemblyResolve event for dependencies. See GitHub samples https://github.com/calvinhsia/CreateDump
         /// </summary>
-        /// <param name="fullPathAsmName">assembly with target code to execute</param>
-        /// <param name="typeName">the type name. Can be static or not</param>
-        /// <param name="methodName"></param>
-        /// <param name="targArgs">can be simple types, like int, bool,string</param>
+        /// <param name="fullPathAsmName">existing assembly with target code to execute</param>
+        /// <param name="typeName">the type name of the code to execute. Can be static or not</param>
+        /// <param name="methodName">the method name fo the code to execute. It's return value if any is ignored. After all, we're running an EXE and returning</param>
+        /// <param name="targArgs">as string, passed to the generated EXE. Can be simple types, like int, bool,string. The Exe will instantiate the type, invoke the method with these params</param>
         public void InvokeMethodViaReflection(
             string fullPathAsmName,
             string typeName,
@@ -161,7 +169,6 @@ namespace UnitTestProject1
                                 case "Boolean":
                                     oparms[i] = bool.Parse(targArgs[i]);
                                     break;
-
                             }
                         }
                         methinfo.Invoke(typInstance, oparms);

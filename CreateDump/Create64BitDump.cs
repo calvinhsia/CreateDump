@@ -152,11 +152,6 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldelem_Ref);
                     il.Emit(OpCodes.Stsfld, statTarg32bitDll);
 
-                    //var asmprog32 = Assembly.LoadFrom(args[0]);
-                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
-                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Stloc_2);
-
                     if (AsmResolveMethodBuilder != null)
                     {
                         //AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
@@ -174,6 +169,12 @@ namespace Microsoft.Performance.ResponseTime
                             il.Emit(OpCodes.Pop);
                         }
                     }
+
+                    //var asmprog32 = Assembly.LoadFrom(args[0]);
+                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
+                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Stloc_2);
+
 
                     //foreach (var type in asmprog32.GetExportedTypes())
                     il.Emit(OpCodes.Ldloc_2);
@@ -378,18 +379,17 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events Unsubscribed");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Pop);
-
-                    if (logOutput)
-                    {
-                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                        il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-                        il.Emit(OpCodes.Stloc_0);
-                        il.Emit(OpCodes.Ldarg_0);
-                        il.Emit(OpCodes.Ldc_I4, 4);
-                        il.Emit(OpCodes.Ldelem_Ref);
-                        il.Emit(OpCodes.Ldloc_0);
-                        il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
-                    }
+                }
+                if (logOutput)
+                {
+                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                    il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                    il.Emit(OpCodes.Stloc_0);
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldc_I4, 4);
+                    il.Emit(OpCodes.Ldelem_Ref);
+                    il.Emit(OpCodes.Ldloc_0);
+                    il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 }
                 il.Emit(OpCodes.Ret);
             }
