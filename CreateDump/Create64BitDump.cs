@@ -21,16 +21,12 @@ namespace Microsoft.Performance.ResponseTime
     /// </summary>
     internal class Create64BitDump
     {
-        //private readonly string _targ64PEFile;
-        //private readonly string _TypeName;
-        //private AssemblyBuilder _assemblyBuilder;
-        //private MethodBuilder _mainMethodBuilder;
-
         public Type Create64BitExeUsingEmit(
             string targPEFile,
-            PortableExecutableKinds portableExecutableKinds, 
-            ImageFileMachine imageFileMachine, 
-            bool logOutput, 
+            PortableExecutableKinds portableExecutableKinds,
+            ImageFileMachine imageFileMachine,
+            string AdditionalAssemblyPath = null,
+            bool logOutput = false,
             bool CauseException = false)
         {
             var typeName = Path.GetFileNameWithoutExtension(targPEFile);
@@ -44,69 +40,73 @@ namespace Microsoft.Performance.ResponseTime
             var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
             var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
-            var AsmResolveMethodBuilder = typeBuilder.DefineMethod(
-                "CurrentDomain_AssemblyResolve",
-                MethodAttributes.Static,
-                returnType: typeof(Assembly),
-                parameterTypes: new Type[] { typeof(object), typeof(ResolveEventArgs) }
-                );
+            MethodBuilder AsmResolveMethodBuilder = null;
+            if (!string.IsNullOrEmpty(AdditionalAssemblyPath))
             {
-                var il = AsmResolveMethodBuilder.GetILGenerator();
-                il.DeclareLocal(typeof(Assembly));//0 // retvalue
-                il.DeclareLocal(typeof(string)); //1 var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-                il.DeclareLocal(typeof(string)); //2 requestName =Microsoft.VisualStudio.Telemetry
-
-                if (logOutput)
+                AsmResolveMethodBuilder = typeBuilder.DefineMethod(
+                    "CurrentDomain_AssemblyResolve",
+                    MethodAttributes.Static,
+                    returnType: typeof(Assembly),
+                    parameterTypes: new Type[] { typeof(object), typeof(ResolveEventArgs) }
+                    );
                 {
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Ldstr, "InResolveMethod");
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Pop);
-                }
+                    var il = AsmResolveMethodBuilder.GetILGenerator();
+                    il.DeclareLocal(typeof(Assembly));//0 // retvalue
+                    il.DeclareLocal(typeof(string)); //1 var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+                    il.DeclareLocal(typeof(string)); //2 requestName =Microsoft.VisualStudio.Telemetry
 
-                //var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-                il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
-                il.Emit(OpCodes.Call, typeof(Path).GetMethod("GetDirectoryName", new Type[] { typeof(string) }));
-                il.Emit(OpCodes.Ldstr, "PrivateAssemblies");
-                il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
-                il.Emit(OpCodes.Stloc_1);
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldstr, "InResolveMethod");
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+                    }
 
-                if (logOutput)
-                {
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                    //var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
+                    il.Emit(OpCodes.Call, typeof(Path).GetMethod("GetDirectoryName", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Ldstr, AdditionalAssemblyPath);
+                    il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
+                    il.Emit(OpCodes.Stloc_1);
+
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldloc_1);
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+                    }
+
+                    //var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+                    il.Emit(OpCodes.Ldarg_1);
+                    il.Emit(OpCodes.Callvirt, typeof(ResolveEventArgs).GetProperty("Name").GetMethod); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    il.Emit(OpCodes.Ldarg_1);
+                    il.Emit(OpCodes.Callvirt, typeof(ResolveEventArgs).GetProperty("Name").GetMethod); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+                    il.Emit(OpCodes.Ldstr, ",");
+                    il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("IndexOf", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Substring", new Type[] { typeof(Int32), typeof(Int32) }));
+                    il.Emit(OpCodes.Stloc_2); // Microsoft.VisualStudio.Telemetry
+
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldloc_2);
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+                    }
+
+                    //asm = Assembly.LoadFrom(Path.Combine(privAsmDir, $"{requestName}.dll"));
                     il.Emit(OpCodes.Ldloc_1);
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Pop);
-                }
-
-                //var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-                il.Emit(OpCodes.Ldarg_1);
-                il.Emit(OpCodes.Callvirt, typeof(ResolveEventArgs).GetProperty("Name").GetMethod); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-                il.Emit(OpCodes.Ldc_I4_0);
-                il.Emit(OpCodes.Ldarg_1);
-                il.Emit(OpCodes.Callvirt, typeof(ResolveEventArgs).GetProperty("Name").GetMethod); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-                il.Emit(OpCodes.Ldstr, ",");
-                il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("IndexOf", new Type[] { typeof(string) }));
-                il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Substring", new Type[] { typeof(Int32), typeof(Int32) }));
-                il.Emit(OpCodes.Stloc_2); // Microsoft.VisualStudio.Telemetry
-
-                if (logOutput)
-                {
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
                     il.Emit(OpCodes.Ldloc_2);
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Pop);
+                    il.Emit(OpCodes.Ldstr, ".dll");
+                    il.Emit(OpCodes.Call, typeof(string).GetMethod("Concat", new Type[] { typeof(string), typeof(string) }));
+                    il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
+                    il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
+
+                    il.Emit(OpCodes.Ret);
                 }
-
-                //asm = Assembly.LoadFrom(Path.Combine(privAsmDir, $"{requestName}.dll"));
-                il.Emit(OpCodes.Ldloc_1);
-                il.Emit(OpCodes.Ldloc_2);
-                il.Emit(OpCodes.Ldstr, ".dll");
-                il.Emit(OpCodes.Call, typeof(string).GetMethod("Concat", new Type[] { typeof(string), typeof(string) }));
-                il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
-                il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
-
-                il.Emit(OpCodes.Ret);
             }
             var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
@@ -140,7 +140,6 @@ namespace Microsoft.Performance.ResponseTime
                         il.Emit(OpCodes.Pop);
                     }
 
-
                     if (CauseException)
                     {
                         il.Emit(OpCodes.Ldnull);
@@ -158,20 +157,22 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Stloc_2);
 
-
-                    //AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
-                    il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
-                    il.Emit(OpCodes.Ldnull);
-                    il.Emit(OpCodes.Ldftn, AsmResolveMethodBuilder);
-                    il.Emit(OpCodes.Newobj, typeof(ResolveEventHandler).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
-                    il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetAddMethod());
-
-                    if (logOutput)
+                    if (AsmResolveMethodBuilder != null)
                     {
-                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                        il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events subscribed");
-                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                        il.Emit(OpCodes.Pop);
+                        //AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                        il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
+                        il.Emit(OpCodes.Ldnull);
+                        il.Emit(OpCodes.Ldftn, AsmResolveMethodBuilder);
+                        il.Emit(OpCodes.Newobj, typeof(ResolveEventHandler).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
+                        il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetAddMethod());
+
+                        if (logOutput)
+                        {
+                            il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                            il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events subscribed");
+                            il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                            il.Emit(OpCodes.Pop);
+                        }
                     }
 
                     //foreach (var type in asmprog32.GetExportedTypes())
@@ -364,28 +365,31 @@ namespace Microsoft.Performance.ResponseTime
                 }
                 il.EndExceptionBlock();
 
-                //AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
-                il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
-                il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Ldftn, AsmResolveMethodBuilder);
-                il.Emit(OpCodes.Newobj, typeof(ResolveEventHandler).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
-                il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetRemoveMethod());
-
-                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events Unsubscribed");
-                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                il.Emit(OpCodes.Pop);
-
-                if (logOutput)
+                if (AsmResolveMethodBuilder != null)
                 {
+                    //AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
+                    il.Emit(OpCodes.Call, typeof(AppDomain).GetProperty("CurrentDomain").GetMethod);
+                    il.Emit(OpCodes.Ldnull);
+                    il.Emit(OpCodes.Ldftn, AsmResolveMethodBuilder);
+                    il.Emit(OpCodes.Newobj, typeof(ResolveEventHandler).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
+                    il.Emit(OpCodes.Callvirt, typeof(AppDomain).GetEvent("AssemblyResolve").GetRemoveMethod());
+
                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
-                    il.Emit(OpCodes.Stloc_0);
-                    il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Ldc_I4, 4);
-                    il.Emit(OpCodes.Ldelem_Ref);
-                    il.Emit(OpCodes.Ldloc_0);
-                    il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                    il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events Unsubscribed");
+                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                    il.Emit(OpCodes.Pop);
+
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                        il.Emit(OpCodes.Stloc_0);
+                        il.Emit(OpCodes.Ldarg_0);
+                        il.Emit(OpCodes.Ldc_I4, 4);
+                        il.Emit(OpCodes.Ldelem_Ref);
+                        il.Emit(OpCodes.Ldloc_0);
+                        il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
+                    }
                 }
                 il.Emit(OpCodes.Ret);
             }
@@ -399,7 +403,7 @@ namespace Microsoft.Performance.ResponseTime
         // this is just test code
         public Type CreateSimpleAsm(
             string targPEFile,
-            PortableExecutableKinds portableExecutableKinds, 
+            PortableExecutableKinds portableExecutableKinds,
             ImageFileMachine imageFileMachine)
         {
             var typeName = Path.GetFileNameWithoutExtension(targPEFile);
@@ -518,7 +522,6 @@ namespace Microsoft.Performance.ResponseTime
                             il.Emit(OpCodes.Stloc, 10);
 
                             bool sendStringBuilderAs4thParam = true;
-
 
                             //var argsToPass = new object[] { pidAsString, args[4], true };
                             il.Emit(sendStringBuilderAs4thParam ? OpCodes.Ldc_I4_4 : OpCodes.Ldc_I4_3); // size of array

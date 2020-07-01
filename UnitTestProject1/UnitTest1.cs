@@ -76,7 +76,13 @@ namespace UnitTestProject1
             //myMain();
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
             var oBuilder = new Create64BitDump();
-            var type= oBuilder.Create64BitExeUsingEmit(_targ64PEFile, PortableExecutableKinds.ILOnly, ImageFileMachine.I386, logOutput: true, CauseException: true);
+            var type = oBuilder.Create64BitExeUsingEmit(
+                _targ64PEFile,
+                PortableExecutableKinds.ILOnly,
+                ImageFileMachine.I386,
+                AdditionalAssemblyPath: "PrivateAssemblies",
+                logOutput: true,
+                CauseException: true);
 
             var typ = Activator.CreateInstance(type);
 
@@ -141,7 +147,12 @@ namespace UnitTestProject1
         {
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
             var oBuilder = new Create64BitDump();
-            var type = oBuilder.Create64BitExeUsingEmit(targ64PEFile, PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64, logOutput: true);
+            var type = oBuilder.Create64BitExeUsingEmit(
+                targ64PEFile, 
+                PortableExecutableKinds.PE32Plus, 
+                ImageFileMachine.AMD64,
+                AdditionalAssemblyPath: "PrivateAssemblies",
+                logOutput: true);
 
             if (testInProc)
             {
@@ -195,7 +206,12 @@ namespace UnitTestProject1
         public void TestGet64BitDump()
         {
             var oBuilder = new Create64BitDump();
-            var type = oBuilder.Create64BitExeUsingEmit(_targ64PEFile, PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64, logOutput: false);
+            var type = oBuilder.Create64BitExeUsingEmit(
+                _targ64PEFile, 
+                PortableExecutableKinds.PE32Plus, 
+                ImageFileMachine.AMD64,
+                AdditionalAssemblyPath: "PrivateAssemblies",
+                logOutput: false);
 
             Assert.IsTrue(File.Exists(_targ64PEFile), $"Built EXE not found {_targ64PEFile}");
             _tempOutputFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
