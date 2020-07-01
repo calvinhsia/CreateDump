@@ -72,6 +72,53 @@ namespace UnitTestProject1
             Assert.IsTrue(result.Contains("IntPtr.Size == 4"), "Test content expected");
         }
 
+
+        [TestMethod]
+        public void TestInvokeViaCreatedAssembly()
+        {
+            var type = new AssemblyCreator().CreateAssembly(
+                _tempExeName,
+                PortableExecutableKinds.PE32Plus,
+                ImageFileMachine.AMD64,
+                "PrivateAssemblies",
+                logOutput: true
+            );
+            Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
+
+            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
+
+            var targDllToRun = _targ32bitPWDll;
+            targDllToRun = typeof(AssemblyCreator).Assembly.Location;
+            var parm1 = procToDump.Id;
+            var parm2 = _tempOutputFile;
+            var parm3 = true;
+            var p64 = Process.Start(
+                _tempExeName,
+                $@"""{targDllToRun}"" {nameof(TargetStaticClass)} {nameof(TargetStaticClass.MyStaticMethodWith3Param)} {parm1} ""{parm2}"" {parm3}");
+            if (p64.WaitForExit(10 * 1000))
+            {
+                Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
+                var finfo = new FileInfo(_tempOutputFile);
+                Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                var result = File.ReadAllText(_tempOutputFile);
+                TestContext.WriteLine(result);
+                Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
+                Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
+                Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm1 = {parm1}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm2 = {parm2}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm3 = {parm3}"), "Test content expected");
+                Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
+                Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we executed code in a 64 bit process");
+                Assert.IsTrue(result.Contains("back from call"), "Test content expected");
+
+                Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
+            }
+            else
+            {
+                Assert.Fail($"Process took too long {_tempExeName}");
+            }
+        }
         [TestMethod]
         public void TestInvokePWViaCreatedAssembly()
         {
@@ -113,47 +160,6 @@ namespace UnitTestProject1
                 //Assert.IsTrue(result.Contains("back from call"), "Test content expected");
 
                 //Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
-            }
-            else
-            {
-                Assert.Fail($"Process took too long {_tempExeName}");
-            }
-        }
-
-        [TestMethod]
-        public void TestInvokeViaCreatedAssembly()
-        {
-            var type = new AssemblyCreator().CreateAssembly(
-                _tempExeName,
-                PortableExecutableKinds.PE32Plus,
-                ImageFileMachine.AMD64,
-                "PrivateAssemblies",
-                logOutput:true
-            );
-            Assert.IsTrue(File.Exists(_tempExeName),"generated asm not found");
-
-            var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-
-            var targDllToRun = _targ32bitPWDll;
-            targDllToRun = typeof(AssemblyCreator).Assembly.Location;
-            var p64 = Process.Start(
-                _tempExeName,
-                $@"""{targDllToRun}"" {nameof(TargetStaticClass)} {nameof(TargetStaticClass.MyStaticMethodWith3Param)} {procToDump.Id} ""{_tempOutputFile}"" true");
-            if (p64.WaitForExit(10 * 1000))
-            {
-                Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
-                var finfo = new FileInfo(_tempOutputFile);
-                Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                var result = File.ReadAllText(_tempOutputFile);
-                TestContext.WriteLine(result);
-                Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
-                Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
-                Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
-                Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
-                Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we're in a 64 bit process");
-                Assert.IsTrue(result.Contains("back from call"), "Test content expected");
-
-                Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
             }
             else
             {
@@ -207,6 +213,21 @@ namespace UnitTestProject1
                         }
                         for (int i = 0; i < parms.Length; i++)
                         {
+                            //*
+                            var pname = parms[i].ParameterType.Name;
+                            if (pname == "String")
+                            {
+                                oparms[i] = targArgs[i];
+                            }
+                            else if (pname == "Int32")
+                            {
+                                oparms[i] = int.Parse(targArgs[i]);
+                            }
+                            else if (pname == "Boolean")
+                            {
+                                oparms[i] = bool.Parse(targArgs[i]);
+                            }
+                            /*/
                             switch (parms[i].ParameterType.Name)
                             {
                                 case "String":
@@ -219,6 +240,7 @@ namespace UnitTestProject1
                                     oparms[i] = bool.Parse(targArgs[i]);
                                     break;
                             }
+                            //*/
                         }
                         methinfo.Invoke(typInstance, oparms);
                     }

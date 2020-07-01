@@ -114,6 +114,14 @@ namespace CreateAsm
                     il.Emit(OpCodes.Ret);
                 }
             }
+            // the main method gets these params:
+            // args[0] = TargAsmWIthCodeToRun
+            // args[1] = TargTypeName
+            // args[2] = TargMethodName
+            // args[3...] = any parameters to pass to the method. If there are 3 params, then these are args[3-6]
+
+            //"C:\Users\calvinh\Documents\MyTestAsm.exe" "C:\Users\calvinh\source\repos\CreateDump\UnitTestProject1\bin\Debug\CreateAsm.dll" TargetStaticClass MyStaticMethodWith3Param 28284 "C:\Users\calvinh\Documents\MyTestAsm.log" true
+            int argOffset = 3;
             var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
@@ -133,7 +141,9 @@ namespace CreateAsm
                 il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
                 il.DeclareLocal(typeof(object[])); // 9 argsToPass
                 il.DeclareLocal(typeof(Int32));//10 pidAsString
-
+                il.DeclareLocal(typeof(Int32)); // 11 parm loop index
+                il.DeclareLocal(typeof(ParameterInfo[])); // 12 ParameterInfo[]
+                il.DeclareLocal(typeof(string));//13 parametertypename
                 il.BeginExceptionBlock();
                 {
                     il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
@@ -252,6 +262,124 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Pop);
                             }
 
+                            //*
+                            il.Emit(OpCodes.Ldloc, 7);
+                            il.Emit(OpCodes.Callvirt, typeof(MethodInfo).GetMethod("GetParameters"));
+                            il.Emit(OpCodes.Stloc, 12);
+
+                            if (logOutput)
+                            {
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Ldstr, "GotParams");
+                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                                il.Emit(OpCodes.Pop);
+                            }
+
+                            //var argsToPass = new object[parms.length] 
+                            il.Emit(OpCodes.Ldloc, 12);
+                            il.Emit(OpCodes.Ldlen);
+                            il.Emit(OpCodes.Conv_I4);
+                            il.Emit(OpCodes.Newarr, typeof(Object));
+                            il.Emit(OpCodes.Stloc, 9);
+
+                            // for (i = 0 ; i < params.length)
+                            il.Emit(OpCodes.Ldc_I4_0);
+                            il.Emit(OpCodes.Stloc, 11);
+                            var labIncParamLoop = il.DefineLabel();
+                            var labStartParamLoop = il.DefineLabel();
+                            {
+                                il.Emit(OpCodes.Br, labIncParamLoop);
+                                il.MarkLabel(labStartParamLoop);
+
+                                il.Emit(OpCodes.Ldloc, 12);
+                                il.Emit(OpCodes.Ldloc, 11);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Callvirt, typeof(ParameterInfo).GetProperty("ParameterType").GetMethod);
+                                il.Emit(OpCodes.Callvirt, typeof(Type).GetProperty("Name").GetMethod);
+                                il.Emit(OpCodes.Stloc, 13);
+
+                                if (logOutput)
+                                {
+                                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                    il.Emit(OpCodes.Ldloc, 13);
+                                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                                    il.Emit(OpCodes.Pop);
+                                }
+                                // if (name =="String")
+                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldstr, "String");
+                                il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                                var labNotString = il.DefineLabel();
+                                il.Emit(OpCodes.Brfalse, labNotString);
+
+                                // obj[i] = args[i+argOffset]
+                                il.Emit(OpCodes.Ldloc, 9); //obj[]
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldarg_0); // targargs
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldc_I4, argOffset);
+                                il.Emit(OpCodes.Add);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Stelem_Ref);
+                                var labContParmLoop = il.DefineLabel();
+                                il.Emit(OpCodes.Br, labContParmLoop);
+
+                                il.MarkLabel(labNotString);
+                                // if(name == "Int32")
+                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldstr, "Int32");
+                                il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                                var labNotInt32 = il.DefineLabel();
+                                il.Emit(OpCodes.Brfalse, labNotInt32);
+
+                                // obj[i]=int.Parse(args[i+argOffset])
+                                il.Emit(OpCodes.Ldloc, 9); //obj[]
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldarg_0); // targargs
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldc_I4, argOffset);
+                                il.Emit(OpCodes.Add);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
+                                il.Emit(OpCodes.Box, typeof(Int32));
+                                il.Emit(OpCodes.Stelem_Ref);
+                                il.Emit(OpCodes.Br, labContParmLoop);
+
+                                il.MarkLabel(labNotInt32);
+                                // if(name == "Boolean")
+                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldstr, "Boolean");
+                                il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
+                                il.Emit(OpCodes.Brfalse, labContParmLoop);
+
+                                // obj[i]=bool.Parse(args[i+argOffset])
+                                il.Emit(OpCodes.Ldloc, 9); //obj[]
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldarg_0); // targargs
+                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldc_I4, argOffset);
+                                il.Emit(OpCodes.Add);
+                                il.Emit(OpCodes.Ldelem_Ref);
+                                il.Emit(OpCodes.Call, typeof(Boolean).GetMethod("Parse", new Type[] { typeof(string) }));
+                                il.Emit(OpCodes.Box, typeof(Boolean));
+                                il.Emit(OpCodes.Stelem_Ref);
+
+
+                                il.MarkLabel(labContParmLoop);
+                                il.Emit(OpCodes.Ldloc, 11);
+                                il.Emit(OpCodes.Ldc_I4_1);
+                                il.Emit(OpCodes.Add);
+                                il.Emit(OpCodes.Stloc, 11);
+
+                                il.MarkLabel(labIncParamLoop);
+                                il.Emit(OpCodes.Ldloc, 11);
+                                il.Emit(OpCodes.Ldloc, 12);
+                                il.Emit(OpCodes.Ldlen);
+                                il.Emit(OpCodes.Conv_I4);
+                                il.Emit(OpCodes.Clt); // compare if <. Pushes 1  else 0
+                                il.Emit(OpCodes.Brtrue, labStartParamLoop);
+                            }
+                            /*/
                             //var pidAsString = int.Parse(args[3]);
                             il.Emit(OpCodes.Ldarg_0);
                             il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
@@ -313,6 +441,9 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                                 il.Emit(OpCodes.Pop);
                             }
+
+                            //*/
+
                             if (logOutput)
                             {
                                 // before we invoke, we need to flush our log
@@ -438,7 +569,7 @@ namespace CreateAsm
             sb.AppendLine($"{DateTime.Now}");
             sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWith3Param)}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
-            sb.AppendLine($"parm1== {param1} parm2 = {param2} parm3={param3}");
+            sb.AppendLine($"parm1 = {param1} parm2 = {param2} parm3 = {param3}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
