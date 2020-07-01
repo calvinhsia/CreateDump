@@ -260,7 +260,7 @@ namespace CreateAsm
                             il.Emit(OpCodes.Stloc, 10);
 
                             //var argsToPass = new object[] { pidAsString, args[4], true };
-                            il.Emit(logOutput ? OpCodes.Ldc_I4_4 : OpCodes.Ldc_I4_3); // size of array
+                            il.Emit(OpCodes.Ldc_I4_3); // size of array
                             il.Emit(OpCodes.Newarr, typeof(Object));
                             il.Emit(OpCodes.Stloc, 9);
 
@@ -285,11 +285,6 @@ namespace CreateAsm
 
                             if (logOutput)
                             {
-                                il.Emit(OpCodes.Ldloc, 9);
-                                il.Emit(OpCodes.Ldc_I4_3); // elem[2]
-                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                il.Emit(OpCodes.Stelem_Ref);
-
                                 il.Emit(OpCodes.Ldsfld, statStringBuilder);
                                 il.Emit(OpCodes.Ldstr, "CreatedParms");
                                 il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
@@ -318,6 +313,19 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                                 il.Emit(OpCodes.Pop);
                             }
+                            if (logOutput)
+                            {
+                                // before we invoke, we need to flush our log
+                                il.Emit(OpCodes.Ldsfld, statLogOutputFile);
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("ToString", new Type[0]));
+                                il.Emit(OpCodes.Call, typeof(File).GetMethod("AppendAllText", new Type[] { typeof(string), typeof(string) }));
+
+                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("Clear"));
+                                il.Emit(OpCodes.Pop);
+                            }
+
                             //methCollectDump.Invoke(memdumpHelper, argsToPass);
                             il.Emit(OpCodes.Ldloc, 7); // method
                             il.Emit(OpCodes.Ldnull); // instance
@@ -352,7 +360,6 @@ namespace CreateAsm
                         il.Emit(OpCodes.Blt, labStartLoop);
                     }
                     il.MarkLabel(labBreakLoop);
-
 
                 }
 
@@ -410,7 +417,6 @@ namespace CreateAsm
             assemblyBuilder.Save($"{typeName}.exe", portableExecutableKinds, imageFileMachine);
             return type;
         }
-
     }
 
     public static class TargetStaticClass
@@ -427,7 +433,7 @@ namespace CreateAsm
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
-        public static void MyStaticMethodWith3Param(string param1, int param2, bool param3)
+        public static void MyStaticMethodWith3Param(int param1, string param2, bool param3)
         {
             sb.AppendLine($"{DateTime.Now}");
             sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWith3Param)}");
