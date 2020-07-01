@@ -43,8 +43,8 @@ namespace UnitTestProject1
         {
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
-                nameof(TargetStaticClass),
-                nameof(TargetStaticClass.MyStaticMethodWithNoParams),
+                "TargetStaticClass",
+                "MyStaticMethodWithNoParams",
                 targArgs: null);
 
             InvokeMethodViaReflection(
@@ -55,8 +55,8 @@ namespace UnitTestProject1
 
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
-                nameof(TargetStaticClass),
-                nameof(TargetStaticClass.MyStaticMethodWith3Param),
+                "TargetStaticClass",
+                "MyStaticMethodWith3Param",
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
 
@@ -84,6 +84,7 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestInvokeViaCreatedAssembly()
         {
+            _tempExeName = Path.ChangeExtension(Path.GetTempFileName(), ".exe");
             var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
@@ -102,7 +103,7 @@ namespace UnitTestProject1
             var parm3 = true;
             var p64 = Process.Start(
                 _tempExeName,
-                $@"""{targDllToRun}"" {nameof(TargetStaticClass)} {nameof(TargetStaticClass.MyStaticMethodWith3Param)} {parm1} ""{parm2}"" {parm3}");
+                $@"""{targDllToRun}"" TargetStaticClass MyStaticMethodWith3Param {parm1} ""{parm2}"" {parm3}");
             if (p64.WaitForExit(10 * 1000))
             {
                 Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
@@ -178,7 +179,7 @@ namespace UnitTestProject1
                 Assert.IsTrue(finfo.Length > 200 * 1000 * 1000, "Dump should be big");
                 TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {_tempOutputFile}");
 
-
+                File.Delete(_tempOutputFile);
 
                 //Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
                 //var result = File.ReadAllText(_tempOutputFile);
