@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -250,7 +251,7 @@ namespace CreateAsm
                             il.Emit(OpCodes.Ldarg_0);
                             il.Emit(OpCodes.Ldc_I4_2);
                             il.Emit(OpCodes.Ldelem_Ref);
-                            il.Emit(OpCodes.Ldc_I4, 24); // static ==8, nonpublic == 32, public == 16
+                            il.Emit(OpCodes.Ldc_I4, 28); // static ==8, nonpublic == 32, public == 16, instance=4
                             il.Emit(OpCodes.Callvirt, typeof(Type).GetMethod("GetMethod", new Type[] { typeof(string), typeof(BindingFlags) }));
                             il.Emit(OpCodes.Stloc, 7);
 
@@ -262,18 +263,9 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Pop);
                             }
 
-                            //*
                             il.Emit(OpCodes.Ldloc, 7);
                             il.Emit(OpCodes.Callvirt, typeof(MethodInfo).GetMethod("GetParameters"));
                             il.Emit(OpCodes.Stloc, 12);
-
-                            if (logOutput)
-                            {
-                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                il.Emit(OpCodes.Ldstr, "GotParams");
-                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                                il.Emit(OpCodes.Pop);
-                            }
 
                             //var argsToPass = new object[parms.length] 
                             il.Emit(OpCodes.Ldloc, 12);
@@ -281,6 +273,7 @@ namespace CreateAsm
                             il.Emit(OpCodes.Conv_I4);
                             il.Emit(OpCodes.Newarr, typeof(Object));
                             il.Emit(OpCodes.Stloc, 9);
+
 
                             // for (i = 0 ; i < params.length)
                             il.Emit(OpCodes.Ldc_I4_0);
@@ -379,70 +372,6 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Clt); // compare if <. Pushes 1  else 0
                                 il.Emit(OpCodes.Brtrue, labStartParamLoop);
                             }
-                            /*/
-                            //var pidAsString = int.Parse(args[3]);
-                            il.Emit(OpCodes.Ldarg_0);
-                            il.Emit(OpCodes.Ldc_I4_3); // args subscript 3
-                            il.Emit(OpCodes.Ldelem_Ref);
-                            il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
-                            il.Emit(OpCodes.Stloc, 10);
-
-                            //var argsToPass = new object[] { pidAsString, args[4], true };
-                            il.Emit(OpCodes.Ldc_I4_3); // size of array
-                            il.Emit(OpCodes.Newarr, typeof(Object));
-                            il.Emit(OpCodes.Stloc, 9);
-
-                            il.Emit(OpCodes.Ldloc, 9);
-                            il.Emit(OpCodes.Ldc_I4_0); // array elem 0
-                            il.Emit(OpCodes.Ldloc, 10);
-                            il.Emit(OpCodes.Box, typeof(Int32));
-                            il.Emit(OpCodes.Stelem_Ref);
-
-                            il.Emit(OpCodes.Ldloc, 9);
-                            il.Emit(OpCodes.Ldc_I4_1); // elem 1
-                            il.Emit(OpCodes.Ldarg_0);
-                            il.Emit(OpCodes.Ldc_I4_4);
-                            il.Emit(OpCodes.Ldelem_Ref);
-                            il.Emit(OpCodes.Stelem_Ref);
-
-                            il.Emit(OpCodes.Ldloc, 9);
-                            il.Emit(OpCodes.Ldc_I4_2); // elem[2]
-                            il.Emit(OpCodes.Ldc_I4_1); // true
-                            il.Emit(OpCodes.Box, typeof(Boolean));
-                            il.Emit(OpCodes.Stelem_Ref);
-
-                            if (logOutput)
-                            {
-                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                il.Emit(OpCodes.Ldstr, "CreatedParms");
-                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                                il.Emit(OpCodes.Pop);
-
-                                for (int i = 0; i < 3; i++)
-                                {
-                                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                    il.Emit(OpCodes.Ldloc, 9);
-                                    il.Emit(OpCodes.Ldc_I4, i);
-                                    il.Emit(OpCodes.Ldelem_Ref);
-                                    il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
-                                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                                    il.Emit(OpCodes.Pop);
-                                }
-
-                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                il.Emit(OpCodes.Ldloc, 7); // Void CollectDump(Int32, System.String, Boolean)
-                                il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
-                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                                il.Emit(OpCodes.Pop);
-
-                                il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                il.Emit(OpCodes.Ldloc, 9);
-                                il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
-                                il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                                il.Emit(OpCodes.Pop);
-                            }
-
-                            //*/
 
                             if (logOutput)
                             {
@@ -457,9 +386,30 @@ namespace CreateAsm
                                 il.Emit(OpCodes.Pop);
                             }
 
+                            // if (!type.IsAbstract) // if it's not static we need to instantiate
+                            il.Emit(OpCodes.Ldloc, 5); // type
+                            il.Emit(OpCodes.Callvirt, typeof(Type).GetProperty("IsAbstract").GetMethod);
+                            var labIsStatic = il.DefineLabel();
+                            il.Emit(OpCodes.Brtrue, labIsStatic);
+                            {
+                                if (logOutput)
+                                {
+                                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                                    il.Emit(OpCodes.Ldstr, "isNotStatic");
+                                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                                    il.Emit(OpCodes.Pop);
+                                }
+
+                                il.Emit(OpCodes.Ldloc, 5); // type
+                                il.Emit(OpCodes.Call, typeof(Activator).GetMethod("CreateInstance", new Type[] { typeof(Type) }));
+                                il.Emit(OpCodes.Stloc, 8);
+                            }
+
+                            il.MarkLabel(labIsStatic);
+
                             //methCollectDump.Invoke(memdumpHelper, argsToPass);
                             il.Emit(OpCodes.Ldloc, 7); // method
-                            il.Emit(OpCodes.Ldnull); // instance
+                            il.Emit(OpCodes.Ldloc, 8); // instance
                             il.Emit(OpCodes.Ldloc, 9); // args
                             il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
                             il.Emit(OpCodes.Pop);
@@ -491,7 +441,6 @@ namespace CreateAsm
                         il.Emit(OpCodes.Blt, labStartLoop);
                     }
                     il.MarkLabel(labBreakLoop);
-
                 }
 
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
@@ -559,7 +508,7 @@ namespace CreateAsm
         public static void MyStaticMethodWithNoParams()
         {
             sb.AppendLine($"{DateTime.Now}");
-            sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWithNoParams)}");
+            sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWithNoParams)} Pid={Process.GetCurrentProcess().Id} {Process.GetCurrentProcess().MainModule.FileName}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
@@ -567,9 +516,9 @@ namespace CreateAsm
         public static void MyStaticMethodWith3Param(int param1, string param2, bool param3)
         {
             sb.AppendLine($"{DateTime.Now}");
-            sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWith3Param)}");
+            sb.AppendLine($"Here I am in {nameof(TargetStaticClass)} {nameof(MyStaticMethodWith3Param)} Pid={Process.GetCurrentProcess().Id} {Process.GetCurrentProcess().MainModule.FileName}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
-            sb.AppendLine($"parm1 = {param1} parm2 = {param2} parm3 = {param3}");
+            sb.AppendLine($"StaticParm1 = {param1} StaticParm2 = {param2} StaticParm3 = {param3}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
@@ -583,8 +532,17 @@ namespace CreateAsm
         private void MyPrivateMethodWith1Param(string param1)
         {
             sb.AppendLine($"{DateTime.Now}");
-            sb.AppendLine($"Here I am in {nameof(TargetClass)} {nameof(MyPrivateMethodWith1Param)}");
+            sb.AppendLine($"Here I am in {nameof(TargetClass)} {nameof(MyPrivateMethodWith1Param)} Pid={Process.GetCurrentProcess().Id} {Process.GetCurrentProcess().MainModule.FileName}");
             sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
+            sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
+            File.AppendAllText(outputFile, sb.ToString());
+        }
+        public void MyMethodWith3Param(int param1, string param2, bool param3)
+        {
+            sb.AppendLine($"{DateTime.Now}");
+            sb.AppendLine($"Here I am in {nameof(TargetClass)} {nameof(MyMethodWith3Param)} Pid={Process.GetCurrentProcess().Id} {Process.GetCurrentProcess().MainModule.FileName}");
+            sb.AppendLine($"Assembly = {Assembly.GetExecutingAssembly().Location}");
+            sb.AppendLine($"parm1 = {param1} parm2 = {param2} parm3 = {param3}");
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }

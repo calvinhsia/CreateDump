@@ -59,15 +59,23 @@ namespace UnitTestProject1
                 nameof(TargetStaticClass.MyStaticMethodWith3Param),
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
+
+            InvokeMethodViaReflection(
+                typeof(AssemblyCreator).Assembly.Location,
+                "TargetClass",
+                "MyMethodWith3Param",
+                targArgs: new string[] { "123", _tempOutputFile, "true" });
+
+
             var result = File.ReadAllText(_tempOutputFile);
             TestContext.WriteLine(result);
             Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWithNoParams"), "Test content expected");
 
             Assert.IsTrue(result.Contains("Here I am in TargetClass MyPrivateMethodWith1Param"), "Test content expected");
 
-            Assert.IsTrue(result.Contains("parm1== 123"), "Test content expected");
+            Assert.IsTrue(result.Contains("parm1 = 123"), "Test content expected");
 
-            Assert.IsTrue(result.Contains("parm3=True"), "Test content expected");
+            Assert.IsTrue(result.Contains("parm3 = True"), "Test content expected");
 
             Assert.IsTrue(result.Contains("IntPtr.Size == 4"), "Test content expected");
         }
@@ -105,9 +113,9 @@ namespace UnitTestProject1
                 Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
                 Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
                 Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
-                Assert.IsTrue(result.Contains($"parm1 = {parm1}"), "Test content expected");
-                Assert.IsTrue(result.Contains($"parm2 = {parm2}"), "Test content expected");
-                Assert.IsTrue(result.Contains($"parm3 = {parm3}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"StaticParm1 = {parm1}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"StaticParm2 = {parm2}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"StaticParm3 = {parm3}"), "Test content expected");
                 Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
                 Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we executed code in a 64 bit process");
                 Assert.IsTrue(result.Contains("back from call"), "Test content expected");
@@ -118,7 +126,30 @@ namespace UnitTestProject1
             {
                 Assert.Fail($"Process took too long {_tempExeName}");
             }
+
+            File.AppendAllText(_tempOutputFile, $"\r\nNow test non-static\r\n");
+
+            p64 = Process.Start(
+                _tempExeName,
+                $@"""{targDllToRun}"" TargetClass MyMethodWith3Param {parm1} ""{parm2}"" {parm3}");
+            if (p64.WaitForExit(10 * 1000))
+            {
+                Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
+                var finfo = new FileInfo(_tempOutputFile);
+                Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+                var result = File.ReadAllText(_tempOutputFile);
+                TestContext.WriteLine(result);
+                Assert.IsTrue(result.Contains("isNotStatic"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm1 = {parm1}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm2 = {parm2}"), "Test content expected");
+                Assert.IsTrue(result.Contains($"parm3 = {parm3}"), "Test content expected");
+            }
+            else
+            {
+                Assert.Fail($"Process took too long {_tempExeName}");
+            }
         }
+
         [TestMethod]
         public void TestInvokePWViaCreatedAssembly()
         {
@@ -213,7 +244,6 @@ namespace UnitTestProject1
                         }
                         for (int i = 0; i < parms.Length; i++)
                         {
-                            //*
                             var pname = parms[i].ParameterType.Name;
                             if (pname == "String")
                             {
@@ -227,20 +257,6 @@ namespace UnitTestProject1
                             {
                                 oparms[i] = bool.Parse(targArgs[i]);
                             }
-                            /*/
-                            switch (parms[i].ParameterType.Name)
-                            {
-                                case "String":
-                                    oparms[i] = targArgs[i];
-                                    break;
-                                case "Int32":
-                                    oparms[i] = int.Parse(targArgs[i]);
-                                    break;
-                                case "Boolean":
-                                    oparms[i] = bool.Parse(targArgs[i]);
-                                    break;
-                            }
-                            //*/
                         }
                         methinfo.Invoke(typInstance, oparms);
                     }
