@@ -21,27 +21,27 @@ namespace Microsoft.Performance.ResponseTime
     /// </summary>
     internal class Create64BitDump
     {
-        private readonly string _targ64PEFile;
-        private readonly string _TypeName;
-        internal AssemblyBuilder _assemblyBuilder;
-        internal MethodBuilder _mainMethodBuilder;
-        internal Type _type;
+        //private readonly string _targ64PEFile;
+        //private readonly string _TypeName;
+        //private AssemblyBuilder _assemblyBuilder;
+        //private MethodBuilder _mainMethodBuilder;
 
-        public Create64BitDump(string targ64PEFile, string TypeName)
+        public Type Create64BitExeUsingEmit(
+            string targPEFile,
+            PortableExecutableKinds portableExecutableKinds, 
+            ImageFileMachine imageFileMachine, 
+            bool logOutput, 
+            bool CauseException = false)
         {
-            _targ64PEFile = targ64PEFile;
-            _TypeName = TypeName;
-        }
-        public void Create64BitExeUsingEmit(bool logOutput, bool CauseException = false)
-        {
-            var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
+            var typeName = Path.GetFileNameWithoutExtension(targPEFile);
+            var aName = new AssemblyName(typeName);
             // the Appdomain DefineDynamicAssembly has an overload for Dir
-            _assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
                 aName,
                 AssemblyBuilderAccess.RunAndSave,
-                dir: Path.GetDirectoryName(_targ64PEFile));
-            var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
-            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+                dir: Path.GetDirectoryName(targPEFile));
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
             var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
             var AsmResolveMethodBuilder = typeBuilder.DefineMethod(
@@ -108,13 +108,13 @@ namespace Microsoft.Performance.ResponseTime
 
                 il.Emit(OpCodes.Ret);
             }
-            _mainMethodBuilder = typeBuilder.DefineMethod(
+            var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
                 returnType: null,
                 parameterTypes: new Type[] { typeof(string[]) });
             {
-                var il = _mainMethodBuilder.GetILGenerator();
+                var il = mainMethodBuilder.GetILGenerator();
 
                 il.DeclareLocal(typeof(string));//0
                 il.DeclareLocal(typeof(DateTime));//1
@@ -389,29 +389,36 @@ namespace Microsoft.Performance.ResponseTime
                 }
                 il.Emit(OpCodes.Ret);
             }
-            _type = typeBuilder.CreateType();
+            var _type = typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(mainMethodBuilder, PEFileKinds.WindowApplication);
+            assemblyBuilder.Save($"{typeName}.exe", portableExecutableKinds, imageFileMachine);
+            return _type;
         }
 
 #if DEBUG
         // this is just test code
-        public void CreateSimpleAsm()
+        public Type CreateSimpleAsm(
+            string targPEFile,
+            PortableExecutableKinds portableExecutableKinds, 
+            ImageFileMachine imageFileMachine)
         {
-            var aName = new AssemblyName(Path.GetFileNameWithoutExtension(_targ64PEFile));
+            var typeName = Path.GetFileNameWithoutExtension(targPEFile);
+            var aName = new AssemblyName(typeName);
             // the Appdomain DefineDynamicAssembly has an overload for Dir
-            _assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
                 aName,
                 AssemblyBuilderAccess.RunAndSave,
-                dir: Path.GetDirectoryName(_targ64PEFile));
-            var moduleBuilder = _assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
-            var typeBuilder = moduleBuilder.DefineType(_TypeName, TypeAttributes.Public);
+                dir: Path.GetDirectoryName(targPEFile));
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
+            var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
-            _mainMethodBuilder = typeBuilder.DefineMethod(
+            var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
                 MethodAttributes.Public | MethodAttributes.Static,
                 returnType: null,
                 parameterTypes: new Type[] { typeof(string[]) });
             {
-                var il = _mainMethodBuilder.GetILGenerator();
+                var il = mainMethodBuilder.GetILGenerator();
 
                 il.DeclareLocal(typeof(string));//0
                 il.DeclareLocal(typeof(DateTime));//1
@@ -634,10 +641,11 @@ namespace Microsoft.Performance.ResponseTime
                 il.Emit(OpCodes.Call, typeof(File).GetMethod("WriteAllText", new Type[] { typeof(string), typeof(string) }));
                 il.Emit(OpCodes.Ret);
             }
-            _type = typeBuilder.CreateType();
+            var type = typeBuilder.CreateType();
+            assemblyBuilder.SetEntryPoint(mainMethodBuilder, PEFileKinds.WindowApplication);
+            assemblyBuilder.Save($"{typeName}.exe", portableExecutableKinds, imageFileMachine);
+            return type;
         }
 #endif
-
-
     }
 }

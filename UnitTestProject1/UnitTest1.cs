@@ -44,12 +44,10 @@ namespace UnitTestProject1
             //myMain();
 
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64BitDump(_targ64PEFile, _TypeName);
-            oBuilder.CreateSimpleAsm();
+            var oBuilder = new Create64BitDump();
+            var type = oBuilder.CreateSimpleAsm(_targ64PEFile, PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
 
-            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{_TypeName}.exe", PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
-            var typ = Activator.CreateInstance(oBuilder._type);
+            var typInstance = Activator.CreateInstance(type);
 
             //"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" Class1 CollectDumpSimulatorNoArgs 123 "C:\Users\calvinh\Documents\t.txt"
             var args = new string[] { 
@@ -60,7 +58,7 @@ namespace UnitTestProject1
                 procToDump.Id.ToString(),
                 _tempOutputFile,
             };
-            var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+            var main = type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
             main.Invoke(null, new object[] { args });
             Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
             Assert.IsTrue(new FileInfo(_tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
@@ -77,12 +75,10 @@ namespace UnitTestProject1
             //TestContext.WriteLine($"{Assembly.GetExecutingAssembly().Location}");
             //myMain();
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64BitDump(_targ64PEFile, _TypeName);
-            oBuilder.Create64BitExeUsingEmit(logOutput: true, CauseException: true);
+            var oBuilder = new Create64BitDump();
+            var type= oBuilder.Create64BitExeUsingEmit(_targ64PEFile, PortableExecutableKinds.ILOnly, ImageFileMachine.I386, logOutput: true, CauseException: true);
 
-            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{_TypeName}.exe", PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
-            var typ = Activator.CreateInstance(oBuilder._type);
+            var typ = Activator.CreateInstance(type);
 
             //"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe" Class1 CollectDumpSimulatorNoArgs 123 "C:\Users\calvinh\Documents\t.txt"
             var args = new string[] { 
@@ -93,7 +89,7 @@ namespace UnitTestProject1
                 procToDump.Id.ToString(),
                 _tempOutputFile,
             };
-            var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+            var main = type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
             main.Invoke(null, new object[] { args });
             Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
             Assert.IsTrue(new FileInfo(_tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
@@ -144,12 +140,12 @@ namespace UnitTestProject1
             Action<string> AdditionalAsserts)
         {
             var procToDump = Process.GetProcessesByName("Microsoft.ServiceHub.Controller")[0];
-            var oBuilder = new Create64BitDump(targ64PEFile, _TypeName);
-            oBuilder.Create64BitExeUsingEmit(logOutput: true);
+            var oBuilder = new Create64BitDump();
+            var type = oBuilder.Create64BitExeUsingEmit(targ64PEFile, PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64, logOutput: true);
 
             if (testInProc)
             {
-                var typ = Activator.CreateInstance(oBuilder._type);
+                var typInstance = Activator.CreateInstance(type);
 
                 var args = new string[] {
                     targSimDumpCollectorFile,
@@ -158,13 +154,11 @@ namespace UnitTestProject1
                     procToDump.Id.ToString(),
                     _tempOutputFile,
                 };
-                var main = oBuilder._type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
+                var main = type.GetMethod("Main", BindingFlags.Static | BindingFlags.Public);
                 main.Invoke(null, new object[] { args });
             }
             else
             {
-                oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-                oBuilder._assemblyBuilder.Save($"{_TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
                 var p64 = Process.Start(
                     targ64PEFile,
                     $@"""{targSimDumpCollectorFile}"" {className} {methodName} {procToDump.Id} ""{_tempOutputFile}""");
@@ -200,10 +194,8 @@ namespace UnitTestProject1
         [TestMethod]
         public void TestGet64BitDump()
         {
-            var oBuilder = new Create64BitDump(_targ64PEFile, _TypeName);
-            oBuilder.Create64BitExeUsingEmit(logOutput: false);
-            oBuilder._assemblyBuilder.SetEntryPoint(oBuilder._mainMethodBuilder, PEFileKinds.WindowApplication);
-            oBuilder._assemblyBuilder.Save($"{_TypeName}.exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64);
+            var oBuilder = new Create64BitDump();
+            var type = oBuilder.Create64BitExeUsingEmit(_targ64PEFile, PortableExecutableKinds.PE32Plus, ImageFileMachine.AMD64, logOutput: false);
 
             Assert.IsTrue(File.Exists(_targ64PEFile), $"Built EXE not found {_targ64PEFile}");
             _tempOutputFile = Path.ChangeExtension(_tempOutputFile, ".dmp");

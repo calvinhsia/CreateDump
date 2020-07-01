@@ -21,7 +21,7 @@ namespace CreateAsm
 
         public void CreateAssembly()
         {
-            throw new NotImplementedException();
+//            throw new NotImplementedException();
         }
     }
 
