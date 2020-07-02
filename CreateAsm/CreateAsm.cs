@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace CreateAsm
 {
     /// <summary>
-    /// We want to create an assembly that will be loaded in an exe (perhaps 64 bit) that will load and call a target method (could be static or non-static)
+    /// We want to create an assembly that will be loaded in an exe (perhaps 64 bit) that will load and call a target method (could be static or non-static, public, non-public)
     /// Taking a process dump of a 64 bit process from a 32 bit process doesn't work. Even from 32 bit task manager.
     /// This code emits an Asm that can be made into a 64 bit executable
     /// The goal is to call a static method in 32 bit PerfWatson in a static class MemoryDumpHelper with the signature:
@@ -250,7 +250,7 @@ namespace CreateAsm
                             il.Emit(OpCodes.Ldarg_0);
                             il.Emit(OpCodes.Ldc_I4_2);
                             il.Emit(OpCodes.Ldelem_Ref);
-                            il.Emit(OpCodes.Ldc_I4, 28); // static ==8, nonpublic == 32, public == 16, instance=4
+                            il.Emit(OpCodes.Ldc_I4, 8 + 32 + 16 + 4); // static ==8, nonpublic == 32, public == 16, instance=4
                             il.Emit(OpCodes.Callvirt, typeof(Type).GetMethod("GetMethod", new Type[] { typeof(string), typeof(BindingFlags) }));
                             il.Emit(OpCodes.Stloc, 7);
 

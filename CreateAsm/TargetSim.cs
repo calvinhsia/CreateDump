@@ -47,7 +47,7 @@ namespace CreateAsm
             sb.AppendLine($"IntPtr.Size == {IntPtr.Size}");
             File.AppendAllText(outputFile, sb.ToString());
         }
-        public void MyMethodWith3Param(int param1, string param2, bool param3)
+        private void MyMethodWith3Param(int param1, string param2, bool param3)
         {
             sb.AppendLine($"{DateTime.Now}");
             sb.AppendLine($"Here I am in {nameof(TargetClass)} {nameof(MyMethodWith3Param)} Pid={Process.GetCurrentProcess().Id} {Process.GetCurrentProcess().MainModule.FileName}");

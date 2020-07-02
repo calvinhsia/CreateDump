@@ -80,11 +80,16 @@ namespace UnitTestProject1
             Assert.IsTrue(result.Contains("IntPtr.Size == 4"), "Test content expected");
         }
 
+        [TestMethod]
+        public void TestInvokeViaCreatedAssemblyUsingTempFile()
+        {
+            _tempExeName = Path.ChangeExtension(Path.GetTempFileName(), ".exe");
+            TestInvokeViaCreatedAssembly();
+        }
 
         [TestMethod]
         public void TestInvokeViaCreatedAssembly()
         {
-            _tempExeName = Path.ChangeExtension(Path.GetTempFileName(), ".exe");
             var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
