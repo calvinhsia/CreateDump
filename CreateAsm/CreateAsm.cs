@@ -59,9 +59,9 @@ namespace Microsoft.Performance.ResponseTime
                     );
                 {
                     var il = AsmResolveMethodBuilder.GetILGenerator();
-                    il.DeclareLocal(typeof(Assembly));//0 // retvalue
-                    il.DeclareLocal(typeof(string)); //1 var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-                    il.DeclareLocal(typeof(string)); //2 requestName =Microsoft.VisualStudio.Telemetry
+                    var locAsmRetValue = il.DeclareLocal(typeof(Assembly));//0 // retvalue
+                    var locStrAsmAddPath = il.DeclareLocal(typeof(string)); //1 var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
+                    var locStrRequestAsmName = il.DeclareLocal(typeof(string)); //2 requestName =Microsoft.VisualStudio.Telemetry
 
                     if (logOutput)
                     {
@@ -72,12 +72,12 @@ namespace Microsoft.Performance.ResponseTime
                     }
 
                     il.Emit(OpCodes.Ldsfld, statAddDir);
-                    il.Emit(OpCodes.Stloc_1);
+                    il.Emit(OpCodes.Stloc, locStrAsmAddPath);
 
                     if (logOutput)
                     {
                         il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                        il.Emit(OpCodes.Ldloc_1);
+                        il.Emit(OpCodes.Ldloc, locStrAsmAddPath);
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
                     }
@@ -91,19 +91,19 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldstr, ",");
                     il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("IndexOf", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Substring", new Type[] { typeof(Int32), typeof(Int32) }));
-                    il.Emit(OpCodes.Stloc_2); // Microsoft.VisualStudio.Telemetry
+                    il.Emit(OpCodes.Stloc, locStrRequestAsmName); // Microsoft.VisualStudio.Telemetry
 
                     if (logOutput)
                     {
                         il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                        il.Emit(OpCodes.Ldloc_2);
+                        il.Emit(OpCodes.Ldloc, locStrRequestAsmName);
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
                     }
 
                     //asm = Assembly.LoadFrom(Path.Combine(privAsmDir, $"{requestName}.dll"));
-                    il.Emit(OpCodes.Ldloc_1);
-                    il.Emit(OpCodes.Ldloc_2);
+                    il.Emit(OpCodes.Ldloc, locStrAsmAddPath);
+                    il.Emit(OpCodes.Ldloc, locStrRequestAsmName);
                     il.Emit(OpCodes.Ldstr, ".dll");
                     il.Emit(OpCodes.Call, typeof(string).GetMethod("Concat", new Type[] { typeof(string), typeof(string) }));
                     il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
@@ -128,20 +128,20 @@ namespace Microsoft.Performance.ResponseTime
             {
                 var il = mainMethodBuilder.GetILGenerator();
                 var labEnd = il.DefineLabel();
-                il.DeclareLocal(typeof(string));//0
-                il.DeclareLocal(typeof(DateTime));//1
-                il.DeclareLocal(typeof(Assembly)); //2 targ32bitasm
-                il.DeclareLocal(typeof(Type[])); //3 
-                il.DeclareLocal(typeof(Int32)); // 4
-                il.DeclareLocal(typeof(Type)); // 5 // as we iterate types
-                il.DeclareLocal(typeof(string)); // 6 // string typename in loop
-                il.DeclareLocal(typeof(MethodInfo)); // 7 method
-                il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
-                il.DeclareLocal(typeof(object[])); // 9 argsToPass
-                il.DeclareLocal(typeof(Int32));//10 pidAsString
-                il.DeclareLocal(typeof(Int32)); // 11 parm loop index
-                il.DeclareLocal(typeof(ParameterInfo[])); // 12 ParameterInfo[]
-                il.DeclareLocal(typeof(string));//13 parametertypename
+                var locStrTemp = il.DeclareLocal(typeof(string));//0
+                var locdtNow = il.DeclareLocal(typeof(DateTime));//1
+                var locAsmTarg32 = il.DeclareLocal(typeof(Assembly)); //2 targ32bitasm
+                var locTypeArr = il.DeclareLocal(typeof(Type[])); //3 
+                var locIntLoopIndex = il.DeclareLocal(typeof(Int32)); // 4
+                var locTypeCurrent = il.DeclareLocal(typeof(Type)); // 5 // as we iterate types
+                var locStrTypeName = il.DeclareLocal(typeof(string)); // 6 // string typename in loop
+                var locMIMethod = il.DeclareLocal(typeof(MethodInfo)); // 7 method
+                var locObjInstance = il.DeclareLocal(typeof(object));// 8 Activator.CreateInstance
+                var locObjArrArgsToPass = il.DeclareLocal(typeof(object[])); // 9 argsToPass
+                var locIntParmLoopIndex = il.DeclareLocal(typeof(Int32)); // 11 parm loop index
+                var locParameterInfoArr = il.DeclareLocal(typeof(ParameterInfo[])); // 12 ParameterInfo[]
+                var locStrParameterName = il.DeclareLocal(typeof(string));//13 parametertypename
+
                 il.BeginExceptionBlock();
                 {
                     il.Emit(OpCodes.Newobj, typeof(StringBuilder).GetConstructor(new Type[0]));
@@ -195,15 +195,15 @@ namespace Microsoft.Performance.ResponseTime
                     //var asmprog32 = Assembly.LoadFrom(args[0]);
                     il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
                     il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Stloc_2);
+                    il.Emit(OpCodes.Stloc, locAsmTarg32);
 
                     //foreach (var type in asmprog32.GetExportedTypes())
-                    il.Emit(OpCodes.Ldloc_2);
+                    il.Emit(OpCodes.Ldloc, locAsmTarg32);
                     il.Emit(OpCodes.Callvirt, typeof(Assembly).GetMethod("GetTypes"));
-                    il.Emit(OpCodes.Stloc_3); // type[]
+                    il.Emit(OpCodes.Stloc, locTypeArr); // type[]
 
                     il.Emit(OpCodes.Ldc_I4_0);
-                    il.Emit(OpCodes.Stloc, 4); // loop index
+                    il.Emit(OpCodes.Stloc, locIntLoopIndex); // loop index
                     var labIncLoop = il.DefineLabel();
                     var labBreakLoop = il.DefineLabel();
                     il.Emit(OpCodes.Br, labIncLoop);
@@ -211,25 +211,25 @@ namespace Microsoft.Performance.ResponseTime
                         var labStartLoop = il.DefineLabel();
                         il.MarkLabel(labStartLoop);
 
-                        il.Emit(OpCodes.Ldloc_3); // type[]
-                        il.Emit(OpCodes.Ldloc, 4);// loop index
+                        il.Emit(OpCodes.Ldloc, locTypeArr); // type[]
+                        il.Emit(OpCodes.Ldloc, locIntLoopIndex);// loop index
                         il.Emit(OpCodes.Ldelem_Ref);
-                        il.Emit(OpCodes.Stloc, 5);
-                        il.Emit(OpCodes.Ldloc, 5);
+                        il.Emit(OpCodes.Stloc, locTypeCurrent);
+                        il.Emit(OpCodes.Ldloc, locTypeCurrent);
                         il.Emit(OpCodes.Callvirt, typeof(MemberInfo).GetProperty("Name").GetMethod);
-                        il.Emit(OpCodes.Stloc, 6);
+                        il.Emit(OpCodes.Stloc, locStrTypeName);
 
                         if (logOutput)
                         {
                             il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                            il.Emit(OpCodes.Ldloc, 6);
+                            il.Emit(OpCodes.Ldloc, locStrTypeName);
                             il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                             il.Emit(OpCodes.Pop);
                         }
 
                         //if (type.Name == args[1])
                         var labNotOurType = il.DefineLabel();
-                        il.Emit(OpCodes.Ldloc, 6);
+                        il.Emit(OpCodes.Ldloc, locStrTypeName);
                         il.Emit(OpCodes.Ldarg_0);
                         il.Emit(OpCodes.Ldc_I4_1);
                         il.Emit(OpCodes.Ldelem_Ref);
@@ -246,13 +246,13 @@ namespace Microsoft.Performance.ResponseTime
                             }
 
                             //var methCollectDump = type.GetMethod(args[2]);
-                            il.Emit(OpCodes.Ldloc, 5);
+                            il.Emit(OpCodes.Ldloc, locTypeCurrent);
                             il.Emit(OpCodes.Ldarg_0);
                             il.Emit(OpCodes.Ldc_I4_2);
                             il.Emit(OpCodes.Ldelem_Ref);
                             il.Emit(OpCodes.Ldc_I4, 8 + 32 + 16 + 4); // static ==8, nonpublic == 32, public == 16, instance=4
                             il.Emit(OpCodes.Callvirt, typeof(Type).GetMethod("GetMethod", new Type[] { typeof(string), typeof(BindingFlags) }));
-                            il.Emit(OpCodes.Stloc, 7);
+                            il.Emit(OpCodes.Stloc, locMIMethod);
 
                             if (logOutput)
                             {
@@ -262,53 +262,53 @@ namespace Microsoft.Performance.ResponseTime
                                 il.Emit(OpCodes.Pop);
                             }
 
-                            il.Emit(OpCodes.Ldloc, 7);
+                            il.Emit(OpCodes.Ldloc, locMIMethod);
                             il.Emit(OpCodes.Callvirt, typeof(MethodInfo).GetMethod("GetParameters"));
-                            il.Emit(OpCodes.Stloc, 12);
+                            il.Emit(OpCodes.Stloc, locParameterInfoArr);
 
                             //var argsToPass = new object[parms.length] 
-                            il.Emit(OpCodes.Ldloc, 12);
+                            il.Emit(OpCodes.Ldloc, locParameterInfoArr);
                             il.Emit(OpCodes.Ldlen);
                             il.Emit(OpCodes.Conv_I4);
                             il.Emit(OpCodes.Newarr, typeof(Object));
-                            il.Emit(OpCodes.Stloc, 9);
+                            il.Emit(OpCodes.Stloc, locObjArrArgsToPass);
 
 
                             // for (i = 0 ; i < params.length)
                             il.Emit(OpCodes.Ldc_I4_0);
-                            il.Emit(OpCodes.Stloc, 11);
+                            il.Emit(OpCodes.Stloc, locIntParmLoopIndex);
                             var labIncParamLoop = il.DefineLabel();
                             var labStartParamLoop = il.DefineLabel();
                             {
                                 il.Emit(OpCodes.Br, labIncParamLoop);
                                 il.MarkLabel(labStartParamLoop);
 
-                                il.Emit(OpCodes.Ldloc, 12);
-                                il.Emit(OpCodes.Ldloc, 11);
+                                il.Emit(OpCodes.Ldloc, locParameterInfoArr);
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex);
                                 il.Emit(OpCodes.Ldelem_Ref);
                                 il.Emit(OpCodes.Callvirt, typeof(ParameterInfo).GetProperty("ParameterType").GetMethod);
                                 il.Emit(OpCodes.Callvirt, typeof(Type).GetProperty("Name").GetMethod);
-                                il.Emit(OpCodes.Stloc, 13);
+                                il.Emit(OpCodes.Stloc, locStrParameterName);
 
                                 if (logOutput)
                                 {
                                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                    il.Emit(OpCodes.Ldloc, 13);
+                                    il.Emit(OpCodes.Ldloc, locStrParameterName);
                                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                                     il.Emit(OpCodes.Pop);
                                 }
                                 // if (name =="String")
-                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldloc, locStrParameterName);
                                 il.Emit(OpCodes.Ldstr, "String");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
                                 var labNotString = il.DefineLabel();
                                 il.Emit(OpCodes.Brfalse, labNotString);
 
                                 // obj[i] = args[i+argOffset]
-                                il.Emit(OpCodes.Ldloc, 9); //obj[]
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locObjArrArgsToPass); //obj[]
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldarg_0); // targargs
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldc_I4, argOffset);
                                 il.Emit(OpCodes.Add);
                                 il.Emit(OpCodes.Ldelem_Ref);
@@ -318,17 +318,17 @@ namespace Microsoft.Performance.ResponseTime
 
                                 il.MarkLabel(labNotString);
                                 // if(name == "Int32")
-                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldloc, locStrParameterName);
                                 il.Emit(OpCodes.Ldstr, "Int32");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
                                 var labNotInt32 = il.DefineLabel();
                                 il.Emit(OpCodes.Brfalse, labNotInt32);
 
                                 // obj[i]=int.Parse(args[i+argOffset])
-                                il.Emit(OpCodes.Ldloc, 9); //obj[]
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locObjArrArgsToPass); //obj[]
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldarg_0); // targargs
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldc_I4, argOffset);
                                 il.Emit(OpCodes.Add);
                                 il.Emit(OpCodes.Ldelem_Ref);
@@ -339,16 +339,16 @@ namespace Microsoft.Performance.ResponseTime
 
                                 il.MarkLabel(labNotInt32);
                                 // if(name == "Boolean")
-                                il.Emit(OpCodes.Ldloc, 13);
+                                il.Emit(OpCodes.Ldloc, locStrParameterName);
                                 il.Emit(OpCodes.Ldstr, "Boolean");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
                                 il.Emit(OpCodes.Brfalse, labContParmLoop);
 
                                 // obj[i]=bool.Parse(args[i+argOffset])
-                                il.Emit(OpCodes.Ldloc, 9); //obj[]
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locObjArrArgsToPass); //obj[]
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldarg_0); // targargs
-                                il.Emit(OpCodes.Ldloc, 11); //i
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex); //i
                                 il.Emit(OpCodes.Ldc_I4, argOffset);
                                 il.Emit(OpCodes.Add);
                                 il.Emit(OpCodes.Ldelem_Ref);
@@ -358,14 +358,14 @@ namespace Microsoft.Performance.ResponseTime
 
 
                                 il.MarkLabel(labContParmLoop);
-                                il.Emit(OpCodes.Ldloc, 11);
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex);
                                 il.Emit(OpCodes.Ldc_I4_1);
                                 il.Emit(OpCodes.Add);
-                                il.Emit(OpCodes.Stloc, 11);
+                                il.Emit(OpCodes.Stloc, locIntParmLoopIndex);
 
                                 il.MarkLabel(labIncParamLoop);
-                                il.Emit(OpCodes.Ldloc, 11);
-                                il.Emit(OpCodes.Ldloc, 12);
+                                il.Emit(OpCodes.Ldloc, locIntParmLoopIndex);
+                                il.Emit(OpCodes.Ldloc, locParameterInfoArr);
                                 il.Emit(OpCodes.Ldlen);
                                 il.Emit(OpCodes.Conv_I4);
                                 il.Emit(OpCodes.Clt); // compare if <. Pushes 1  else 0
@@ -399,17 +399,17 @@ namespace Microsoft.Performance.ResponseTime
                                     il.Emit(OpCodes.Pop);
                                 }
 
-                                il.Emit(OpCodes.Ldloc, 5); // type
+                                il.Emit(OpCodes.Ldloc, locTypeCurrent); // type
                                 il.Emit(OpCodes.Call, typeof(Activator).GetMethod("CreateInstance", new Type[] { typeof(Type) }));
-                                il.Emit(OpCodes.Stloc, 8);
+                                il.Emit(OpCodes.Stloc, locObjInstance);
                             }
 
                             il.MarkLabel(labIsStatic);
 
                             //methCollectDump.Invoke(memdumpHelper, argsToPass);
-                            il.Emit(OpCodes.Ldloc, 7); // method
-                            il.Emit(OpCodes.Ldloc, 8); // instance
-                            il.Emit(OpCodes.Ldloc, 9); // args
+                            il.Emit(OpCodes.Ldloc, locMIMethod); // method
+                            il.Emit(OpCodes.Ldloc, locObjInstance); // instance
+                            il.Emit(OpCodes.Ldloc, locObjArrArgsToPass); // args
                             il.Emit(OpCodes.Callvirt, typeof(MethodBase).GetMethod("Invoke", new Type[] { typeof(object), typeof(object[]) }));
                             il.Emit(OpCodes.Pop);
 
@@ -427,14 +427,14 @@ namespace Microsoft.Performance.ResponseTime
                         il.MarkLabel(labNotOurType);
 
                         // increment count
-                        il.Emit(OpCodes.Ldloc, 4);
+                        il.Emit(OpCodes.Ldloc, locIntLoopIndex);
                         il.Emit(OpCodes.Ldc_I4_1);
                         il.Emit(OpCodes.Add);
-                        il.Emit(OpCodes.Stloc, 4);
+                        il.Emit(OpCodes.Stloc, locIntLoopIndex);
 
                         il.MarkLabel(labIncLoop);
-                        il.Emit(OpCodes.Ldloc, 4);
-                        il.Emit(OpCodes.Ldloc_3);
+                        il.Emit(OpCodes.Ldloc, locIntLoopIndex);
+                        il.Emit(OpCodes.Ldloc, locTypeArr);
                         il.Emit(OpCodes.Ldlen);
                         il.Emit(OpCodes.Conv_I4);
                         il.Emit(OpCodes.Blt, labStartLoop);
@@ -448,26 +448,26 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Ldelem_Ref);
                     il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
-                    il.Emit(OpCodes.Stloc_0);
+                    il.Emit(OpCodes.Stloc, locStrTemp);
                     il.Emit(OpCodes.Leave, labAfterExceptionBlock);
                 }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
                 {
                     il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
-                    il.Emit(OpCodes.Stloc_0);
+                    il.Emit(OpCodes.Stloc, locStrTemp);
 
                     if (logOutput)
                     {
                         il.Emit(OpCodes.Ldsfld, statStringBuilder);
                         il.Emit(OpCodes.Call, typeof(DateTime).GetProperty("Now").GetMethod);
-                        il.Emit(OpCodes.Stloc_1);
-                        il.Emit(OpCodes.Ldloca_S, 1);
+                        il.Emit(OpCodes.Stloc, locdtNow);
+                        il.Emit(OpCodes.Ldloca, locdtNow);
                         il.Emit(OpCodes.Callvirt, typeof(DateTime).GetMethod("ToString", new Type[0]));
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
 
                         il.Emit(OpCodes.Ldstr, "Exception thrown");
                         il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                        il.Emit(OpCodes.Ldloc_0);
+                        il.Emit(OpCodes.Ldloc, locStrTemp);
                         il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
                     }

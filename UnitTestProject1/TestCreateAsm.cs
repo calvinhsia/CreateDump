@@ -204,10 +204,14 @@ namespace UnitTestProject1
                 $@"""{targDllToRun}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{dumpFile}"" true");
             if (p64.WaitForExit(10 * 1000))
             {
-                Assert.IsTrue(File.Exists(dumpFile), $"Output file not found {dumpFile}");
+                Assert.IsTrue(File.Exists(_tempOutputFile), $"Log file not found {dumpFile}");
+                Assert.IsTrue(new FileInfo(_tempOutputFile).LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1), $"new Log file not found {_tempOutputFile}");
+                var result = File.ReadAllText(_tempOutputFile);
+                TestContext.WriteLine(result);
+                Assert.IsTrue(File.Exists(dumpFile), $"Dump file not found {dumpFile}");
                 var finfo = new FileInfo(dumpFile);
                 Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
-                Assert.IsTrue(finfo.Length > 200 * 1000 * 1000, "Dump should be big");
+                Assert.IsTrue(finfo.Length > 100 * 1000 * 1000, $"Dump should be big {finfo.Length}");
                 TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {dumpFile}");
                 File.Delete(dumpFile);
             }
