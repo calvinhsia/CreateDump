@@ -45,6 +45,7 @@ namespace Microsoft.Performance.ResponseTime
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
             var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+            var statAddDir = typeBuilder.DefineField("addDir", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
             var statLogOutputFile = typeBuilder.DefineField("_logOutputFile", typeof(string), FieldAttributes.Static);
             MethodBuilder AsmResolveMethodBuilder = null;
@@ -70,11 +71,7 @@ namespace Microsoft.Performance.ResponseTime
                         il.Emit(OpCodes.Pop);
                     }
 
-                    //var privAsmDir = Path.Combine(Path.GetDirectoryName(targ32bitDll), "PrivateAssemblies");
-                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
-                    il.Emit(OpCodes.Call, typeof(Path).GetMethod("GetDirectoryName", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Ldstr, AdditionalAssemblyPath);
-                    il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
+                    il.Emit(OpCodes.Ldsfld, statAddDir);
                     il.Emit(OpCodes.Stloc_1);
 
                     if (logOutput)
@@ -162,6 +159,9 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Call, typeof(Environment).GetProperty("CommandLine").GetMethod);
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Pop);
+
+                    il.Emit(OpCodes.Ldstr, AdditionalAssemblyPath);
+                    il.Emit(OpCodes.Stsfld, statAddDir);
 
                     if (CauseException)
                     {
@@ -441,7 +441,16 @@ namespace Microsoft.Performance.ResponseTime
                     }
                     il.MarkLabel(labBreakLoop);
                 }
-
+                var labAfterExceptionBlock = il.DefineLabel();
+                il.BeginCatchBlock(typeof(ReflectionTypeLoadException));
+                {
+                    il.Emit(OpCodes.Call, typeof(ReflectionTypeLoadException).GetProperty("LoaderExceptions").GetMethod);
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    il.Emit(OpCodes.Ldelem_Ref);
+                    il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
+                    il.Emit(OpCodes.Stloc_0);
+                    il.Emit(OpCodes.Leave, labAfterExceptionBlock);
+                }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack
                 {
                     il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
@@ -462,9 +471,10 @@ namespace Microsoft.Performance.ResponseTime
                         il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                         il.Emit(OpCodes.Pop);
                     }
+                    il.Emit(OpCodes.Leave, labAfterExceptionBlock);
                 }
                 il.EndExceptionBlock();
-
+                il.MarkLabel(labAfterExceptionBlock);
                 if (AsmResolveMethodBuilder != null)
                 {
                     //AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;

@@ -19,7 +19,6 @@ namespace UnitTestProject1
         string _targ32bitPWDll;
         string _TypeName;
         string _targ64PEFile;
-        string _targSimDumpCollectorFile = @"CreateDump.exe";//@"C:\Users\calvinh\source\repos\CreateDump\CreateDump\bin\Debug\CreateDump.exe";
 
         [TestInitialize]
         public void Init()
@@ -53,6 +52,7 @@ namespace UnitTestProject1
         }
 
         [TestMethod]
+        [Ignore]// once PW is loaded with asm resolver, will load again with no exception
         public void TestAsmLoadPW()
         {
             TestContext.WriteLine(_targ32bitPWDll);

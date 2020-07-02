@@ -1,14 +1,10 @@
-﻿using CreateAsm;
-using Microsoft.Performance.ResponseTime;
+﻿using Microsoft.Performance.ResponseTime;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 namespace UnitTestProject1
 
 {
@@ -37,7 +33,8 @@ namespace UnitTestProject1
             File.Delete(_tempExeName);
             File.Delete(_tempOutputFile);
             _typeName = Path.GetFileNameWithoutExtension(_tempExeName);
-            File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {nameof(TestInvokeViaCreatedAssembly)}\r\n");
+            File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {TestContext.TestName}\r\n");
+            _additionalDir = string.Empty;
         }
         [TestMethod]
         public void TestInvokeDirectly()
@@ -46,18 +43,21 @@ namespace UnitTestProject1
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetStaticClass",
                 "MyStaticMethodWithNoParams",
+                additionalDir: string.Empty,
                 targArgs: null);
 
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetClass",
                 "MyPrivateMethodWith1Param", // nameof doesn't work for private
+                additionalDir: string.Empty,
                 targArgs: new string[] { _tempOutputFile });
 
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetStaticClass",
                 "MyStaticMethodWith3Param",
+                additionalDir: string.Empty,
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
 
@@ -65,6 +65,7 @@ namespace UnitTestProject1
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetClass",
                 "MyMethodWith3Param",
+                additionalDir: string.Empty,
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
 
@@ -95,7 +96,7 @@ namespace UnitTestProject1
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                "PrivateAssemblies",
+                AdditionalAssemblyPath: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
                 logOutput: true
             );
             Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
@@ -156,18 +157,42 @@ namespace UnitTestProject1
                 Assert.Fail($"Process took too long {_tempExeName}");
             }
         }
+        [TestMethod]
+        public void TestInvokePWDirectly()
+        {
+            var procToDump = Process.GetProcessesByName("PerfWatson2")[0]; // 32 bit
+            var dumpFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
+            InvokeMethodViaReflection(
+                _targ32bitPWDll,
+                "MemoryDumpHelper",
+                "CollectDump",
+                additionalDir: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
+                targArgs: new[] { $"{procToDump.Id}", dumpFile, "true" });
+
+            var result = File.ReadAllText(_tempOutputFile);
+            TestContext.WriteLine(result);
+
+            Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
+            var finfo = new FileInfo(dumpFile);
+            Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
+            Assert.IsTrue(finfo.Length > 100 * 1000 * 1000, $"Dump should be big {finfo.Length} {dumpFile}");
+            TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {_tempOutputFile}");
+
+            File.Delete(dumpFile);
+        }
+
 
         [TestMethod]
         public void TestInvokePWViaCreatedAssembly()
         {
-            _tempOutputFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
-
+            var dumpFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
+            var addDir = Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies");
             var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                "PrivateAssemblies",
-                logOutput: false
+                addDir,
+                logOutput: true
             );
             Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
 
@@ -176,28 +201,15 @@ namespace UnitTestProject1
             var targDllToRun = _targ32bitPWDll;
             var p64 = Process.Start(
                 _tempExeName,
-                $@"""{targDllToRun}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{_tempOutputFile}"" true");
+                $@"""{targDllToRun}"" MemoryDumpHelper CollectDump {procToDump.Id} ""{dumpFile}"" true");
             if (p64.WaitForExit(10 * 1000))
             {
-                Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
-                var finfo = new FileInfo(_tempOutputFile);
+                Assert.IsTrue(File.Exists(dumpFile), $"Output file not found {dumpFile}");
+                var finfo = new FileInfo(dumpFile);
                 Assert.IsTrue(finfo.LastWriteTime > DateTime.Now - TimeSpan.FromSeconds(1));
                 Assert.IsTrue(finfo.Length > 200 * 1000 * 1000, "Dump should be big");
-                TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {_tempOutputFile}");
-
-                File.Delete(_tempOutputFile);
-
-                //Assert.IsTrue(File.Exists(_tempOutputFile), $"Output file not found {_tempOutputFile}");
-                //var result = File.ReadAllText(_tempOutputFile);
-                //TestContext.WriteLine(result);
-                //Assert.IsTrue(result.Contains("InMyTestAsm!!!"), "Test content expected");
-                //Assert.IsTrue(result.Contains("Asm ResolveEvents events subscribed"), "Test content expected");
-                //Assert.IsTrue(result.Contains("Here I am in TargetStaticClass MyStaticMethodWith3Param"), "Test content expected");
-                //Assert.IsTrue(IntPtr.Size == 4, "We're in a 32 bit process");
-                //Assert.IsTrue(result.Contains("IntPtr.Size == 8"), "we're in a 64 bit process");
-                //Assert.IsTrue(result.Contains("back from call"), "Test content expected");
-
-                //Assert.IsTrue(result.Contains("Asm ResolveEvents events Unsubscribed"), "Test content expected");
+                TestContext.WriteLine($"Got results dump file len = {finfo.Length:n0} {dumpFile}");
+                File.Delete(dumpFile);
             }
             else
             {
@@ -205,6 +217,7 @@ namespace UnitTestProject1
             }
         }
 
+        string _additionalDir = string.Empty;
         /// <summary>
         /// Want to start an executable with this assembly with these args.
         /// The output log is solely for debugging.
@@ -218,6 +231,7 @@ namespace UnitTestProject1
             string fullPathAsmName,
             string typeName,
             string methodName,
+            string additionalDir,
             string[] targArgs)
         {// write this very simply: we're going to use Reflection.Emit to create this code
             var logFile = Path.Combine(
@@ -226,6 +240,12 @@ namespace UnitTestProject1
             var sb = new StringBuilder();
             try
             {
+                if (!string.IsNullOrEmpty(additionalDir))
+                {
+                    _additionalDir = additionalDir;
+                    AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                }
+
                 var targAsm = Assembly.LoadFrom(fullPathAsmName);
                 sb.AppendLine($"Attempting to invoke via reflection: {typeName} {methodName}");
                 foreach (var type in targAsm.GetTypes())
@@ -269,11 +289,23 @@ namespace UnitTestProject1
                     }
                 }
             }
+            catch (ReflectionTypeLoadException ex)
+            {
+                sb.AppendLine($"LoaderException: {ex.LoaderExceptions[0]}");
+            }
             catch (Exception ex)
             {
                 sb.AppendLine($"Exception: {typeName} {methodName} {ex.ToString()}");
             }
+            AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
             File.AppendAllText(logFile, sb.ToString());
+        }
+        private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            Assembly asm = null;
+            var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+            asm = Assembly.LoadFrom(Path.Combine(_additionalDir, $"{requestName}.dll"));
+            return asm;
         }
 
     }
