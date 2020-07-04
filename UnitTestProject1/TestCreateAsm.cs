@@ -34,7 +34,7 @@ namespace UnitTestProject1
             File.Delete(_tempOutputFile);
             _typeName = Path.GetFileNameWithoutExtension(_tempExeName);
             File.AppendAllText(_tempOutputFile, $"{DateTime.Now} Starting {TestContext.TestName}\r\n");
-            _additionalDir = string.Empty;
+            _additionalDirs = string.Empty;
         }
         [TestMethod]
         public void TestInvokeDirectly()
@@ -43,21 +43,21 @@ namespace UnitTestProject1
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetStaticClass",
                 "MyStaticMethodWithNoParams",
-                additionalDir: string.Empty,
+                additionalDirs: string.Empty,
                 targArgs: null);
 
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetClass",
                 "MyPrivateMethodWith1Param", // nameof doesn't work for private
-                additionalDir: string.Empty,
+                additionalDirs: string.Empty,
                 targArgs: new string[] { _tempOutputFile });
 
             InvokeMethodViaReflection(
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetStaticClass",
                 "MyStaticMethodWith3Param",
-                additionalDir: string.Empty,
+                additionalDirs: string.Empty,
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
 
@@ -65,7 +65,7 @@ namespace UnitTestProject1
                 typeof(AssemblyCreator).Assembly.Location,
                 "TargetClass",
                 "MyMethodWith3Param",
-                additionalDir: string.Empty,
+                additionalDirs: string.Empty,
                 targArgs: new string[] { "123", _tempOutputFile, "true" });
 
 
@@ -96,7 +96,7 @@ namespace UnitTestProject1
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                AdditionalAssemblyPath: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
+                AdditionalAssemblyPaths: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
                 logOutput: true
             );
             Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
@@ -166,7 +166,7 @@ namespace UnitTestProject1
                 _targ32bitPWDll,
                 "MemoryDumpHelper",
                 "CollectDump",
-                additionalDir: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
+                additionalDirs: @"c:\dummy;"+Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
                 targArgs: new[] { $"{procToDump.Id}", dumpFile, "true" });
 
             var result = File.ReadAllText(_tempOutputFile);
@@ -186,12 +186,12 @@ namespace UnitTestProject1
         public void TestInvokePWViaCreatedAssembly()
         {
             var dumpFile = Path.ChangeExtension(_tempOutputFile, ".dmp");
-            var addDir = Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies");
+            var addDirs = Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies");
             var type = new AssemblyCreator().CreateAssembly(
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                addDir,
+                @"c:\dummy;" + addDirs, // test that multiple folders work too
                 logOutput: true
             );
             Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
@@ -221,7 +221,7 @@ namespace UnitTestProject1
             }
         }
 
-        string _additionalDir = string.Empty;
+        string _additionalDirs = string.Empty;
         /// <summary>
         /// Want to start an executable with this assembly with these args.
         /// The output log is solely for debugging.
@@ -235,7 +235,7 @@ namespace UnitTestProject1
             string fullPathAsmName,
             string typeName,
             string methodName,
-            string additionalDir,
+            string additionalDirs,
             string[] targArgs)
         {// write this very simply: we're going to use Reflection.Emit to create this code
             var logFile = Path.Combine(
@@ -244,9 +244,9 @@ namespace UnitTestProject1
             var sb = new StringBuilder();
             try
             {
-                if (!string.IsNullOrEmpty(additionalDir))
+                if (!string.IsNullOrEmpty(additionalDirs))
                 {
-                    _additionalDir = additionalDir;
+                    _additionalDirs = additionalDirs;
                     AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
                 }
 
@@ -307,8 +307,20 @@ namespace UnitTestProject1
         private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
         {
             Assembly asm = null;
-            var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-            asm = Assembly.LoadFrom(Path.Combine(_additionalDir, $"{requestName}.dll"));
+            var requestName = args.Name.Substring(0, args.Name.IndexOf(",")) + ".dll"; // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+            var split = _additionalDirs.Split(new[] { ';' });
+            foreach (var dir in split)
+            {
+                var trypath = Path.Combine(dir, requestName);
+                if (File.Exists(trypath))
+                {
+                    asm = Assembly.LoadFrom(trypath);
+                    if (asm != null)
+                    {
+                        break;
+                    }
+                }
+            }
             return asm;
         }
 
