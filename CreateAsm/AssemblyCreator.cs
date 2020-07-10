@@ -24,14 +24,15 @@ namespace Microsoft.Performance.ResponseTime
         /// the parameters are pased to the 64 bit exe on the commandline.
         /// This code logs output to the output file (which is the dump file when called with logging false)
         /// The code generates a static Main (string[] args) method.
-        ///  see https://github.com/calvinhsia/CreateDump
+        /// There are many tests for this code, including the C# code that this emits.
+        ///     see https://github.com/calvinhsia/CreateDump
         /// </summary>
-        /// <param name="targPEFile"></param>
+        /// <param name="targPEFile">full path to Microsoft.VisualStudio.PerfWatson.dll</param>
         /// <param name="portableExecutableKinds"></param>
         /// <param name="imageFileMachine"></param>
-        /// <param name="AdditionalAssemblyPaths">a single full path or ';' separted fullpaths for additional dirs to load dependencies</param>
-        /// <param name="logOutput"></param>
-        /// <param name="CauseException"></param>
+        /// <param name="AdditionalAssemblyPaths">a single full path or ';' separted fullpaths for additional dirs to load dependencies. No Quotes</param>
+        /// <param name="logOutput">for debugging/testing</param>
+        /// <param name="CauseException">for debugging/testing</param>
         /// <returns></returns>
         public Type CreateAssembly(
                 string targPEFile,
@@ -52,12 +53,33 @@ namespace Microsoft.Performance.ResponseTime
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
             var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
-            var statAddDirs = typeBuilder.DefineField("addDirs", typeof(string), FieldAttributes.Static);
+            var statAddDirs = typeBuilder.DefineField("_additionalDirs", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
             var statLogOutputFile = typeBuilder.DefineField("_logOutputFile", typeof(string), FieldAttributes.Static);
             MethodBuilder AsmResolveMethodBuilder = null;
             if (!string.IsNullOrEmpty(AdditionalAssemblyPaths))
             {
+                /* we define the Resolve method:
+                    private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+                    {
+                        Assembly asm = null;
+                        var requestName = args.Name.Substring(0, args.Name.IndexOf(",")) + ".dll"; // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+                        var split = _additionalDirs.Split(new[] { ';' });
+                        foreach (var dir in split)
+                        {
+                            var trypath = Path.Combine(dir, requestName);
+                            if (File.Exists(trypath))
+                            {
+                                asm = Assembly.LoadFrom(trypath);
+                                if (asm != null)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        return asm;
+                    }
+                 * */
                 AsmResolveMethodBuilder = typeBuilder.DefineMethod(
                     "CurrentDomain_AssemblyResolve",
                     MethodAttributes.Static,
@@ -166,6 +188,69 @@ namespace Microsoft.Performance.ResponseTime
             // args[3...] = any parameters to pass to the method. If there are 3 params, then these are args[3-6]
 
             //"C:\Users\calvinh\Documents\MyTestAsm.exe" "C:\Users\calvinh\source\repos\CreateDump\UnitTestProject1\bin\Debug\CreateAsm.dll" TargetStaticClass MyStaticMethodWith3Param 28284 "C:\Users\calvinh\Documents\MyTestAsm.log" true
+            /* We define the static Main method
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(additionalDirs))
+                        {
+                            _additionalDirs = additionalDirs;
+                            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                        }
+
+                        var targAsm = Assembly.LoadFrom(fullPathAsmName);
+                        sb.AppendLine($"Attempting to invoke via reflection: {typeName} {methodName}");
+                        foreach (var type in targAsm.GetTypes())
+                        {
+                            if (type.Name == typeName)
+                            {
+                                var methinfo = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance);
+                                var parms = methinfo.GetParameters();
+                                sb.AppendLine($"{typeName} {methodName} parms.Length={parms.Length}");
+                                foreach (var parm in parms)
+                                {
+                                    sb.AppendLine($"{parm.Name} {parm.ParameterType}");
+                                }
+                                object typInstance = null;
+                                if (!type.IsAbstract) // static class
+                                {
+                                    typInstance = Activator.CreateInstance(type);
+                                }
+                                var oparms = new object[parms.Length];
+                                if (targArgs == null && parms.Length > 0 || targArgs != null && targArgs.Length != parms.Length)
+                                {
+                                    throw new ArgumentException($"Method {typeName}{methodName} requires #parms= {parms.Length}, but only {targArgs?.Length} provided");
+                                }
+                                for (int i = 0; i < parms.Length; i++)
+                                {
+                                    var pname = parms[i].ParameterType.Name;
+                                    if (pname == "String")
+                                    {
+                                        oparms[i] = targArgs[i];
+                                    }
+                                    else if (pname == "Int32")
+                                    {
+                                        oparms[i] = int.Parse(targArgs[i]);
+                                    }
+                                    else if (pname == "Boolean")
+                                    {
+                                        oparms[i] = bool.Parse(targArgs[i]);
+                                    }
+                                }
+                                methinfo.Invoke(typInstance, oparms);
+                            }
+                        }
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        sb.AppendLine($"LoaderException: {ex.LoaderExceptions[0]}");
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"Exception: {typeName} {methodName} {ex.ToString()}");
+                    }
+                    AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
+
+             */
             int argOffset = 3;
             var mainMethodBuilder = typeBuilder.DefineMethod(
                 "Main",
@@ -198,14 +283,15 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldstr, "MyTestAsm.log");
                     il.Emit(OpCodes.Call, typeof(Path).GetMethod("Combine", new Type[] { typeof(string), typeof(string) }));
                     il.Emit(OpCodes.Stsfld, statLogOutputFile);
-
-                    il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                    il.Emit(OpCodes.Ldstr, "InMyTestAsm!!!");
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-
-                    il.Emit(OpCodes.Call, typeof(Environment).GetProperty("CommandLine").GetMethod);
-                    il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
-                    il.Emit(OpCodes.Pop);
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldstr, "InMyTestAsm!!!");
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Call, typeof(Environment).GetProperty("CommandLine").GetMethod);
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+                    }
 
                     il.Emit(OpCodes.Ldstr, AdditionalAssemblyPaths);
                     il.Emit(OpCodes.Stsfld, statAddDirs);
@@ -535,7 +621,6 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldstr, "Asm ResolveEvents events Unsubscribed");
                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Pop);
-
                 }
                 if (logOutput)
                 {
