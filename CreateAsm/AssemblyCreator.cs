@@ -30,17 +30,17 @@ namespace Microsoft.Performance.ResponseTime
         /// <param name="targPEFile">full path to Microsoft.VisualStudio.PerfWatson.dll</param>
         /// <param name="portableExecutableKinds"></param>
         /// <param name="imageFileMachine"></param>
-        /// <param name="AdditionalAssemblyPaths">a single full path or ';' separted fullpaths for additional dirs to load dependencies. No Quotes</param>
+        /// <param name="additionalAssemblyPaths">a single full path or ';' separted fullpaths for additional dirs to load dependencies. No Quotes</param>
         /// <param name="logOutput">for debugging/testing</param>
-        /// <param name="CauseException">for debugging/testing</param>
+        /// <param name="causeException">for debugging/testing</param>
         /// <returns></returns>
         public Type CreateAssembly(
                 string targPEFile,
                 PortableExecutableKinds portableExecutableKinds,
                 ImageFileMachine imageFileMachine,
-                string AdditionalAssemblyPaths,
+                string additionalAssemblyPaths,
                 bool logOutput = false,
-                bool CauseException = false
+                bool causeException = false
             )
         {
             var typeName = Path.GetFileNameWithoutExtension(targPEFile);
@@ -52,12 +52,12 @@ namespace Microsoft.Performance.ResponseTime
                 dir: Path.GetDirectoryName(targPEFile));
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(aName.Name + ".exe");
             var typeBuilder = moduleBuilder.DefineType(typeName, TypeAttributes.Public);
-            var statTarg32bitDll = typeBuilder.DefineField("targ32bitDll", typeof(string), FieldAttributes.Static);
+            var statTargIlAsm = typeBuilder.DefineField("targIlAsm", typeof(string), FieldAttributes.Static); // the ASM with the code to run
             var statAddDirs = typeBuilder.DefineField("_additionalDirs", typeof(string), FieldAttributes.Static);
             var statStringBuilder = typeBuilder.DefineField("_StringBuilder", typeof(StringBuilder), FieldAttributes.Static);
             var statLogOutputFile = typeBuilder.DefineField("_logOutputFile", typeof(string), FieldAttributes.Static);
             MethodBuilder AsmResolveMethodBuilder = null;
-            if (!string.IsNullOrEmpty(AdditionalAssemblyPaths))
+            if (!string.IsNullOrEmpty(additionalAssemblyPaths))
             {
                 /* we define the Resolve method:
                     private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
@@ -272,7 +272,7 @@ namespace Microsoft.Performance.ResponseTime
                 var locObjArrArgsToPass = il.DeclareLocal(typeof(object[]));
                 var locIntParmLoopIndex = il.DeclareLocal(typeof(Int32));
                 var locParameterInfoArr = il.DeclareLocal(typeof(ParameterInfo[]));
-                var locStrParameterName = il.DeclareLocal(typeof(string));
+                var locStrParameterTypeName = il.DeclareLocal(typeof(string));
 
                 il.BeginExceptionBlock();
                 {
@@ -293,10 +293,10 @@ namespace Microsoft.Performance.ResponseTime
                         il.Emit(OpCodes.Pop);
                     }
 
-                    il.Emit(OpCodes.Ldstr, AdditionalAssemblyPaths);
+                    il.Emit(OpCodes.Ldstr, additionalAssemblyPaths);
                     il.Emit(OpCodes.Stsfld, statAddDirs);
 
-                    if (CauseException)
+                    if (causeException)
                     {
                         il.Emit(OpCodes.Ldnull);
                         il.Emit(OpCodes.Callvirt, typeof(object).GetMethod("ToString", new Type[0]));
@@ -306,7 +306,7 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldarg_0);
                     il.Emit(OpCodes.Ldc_I4_0);
                     il.Emit(OpCodes.Ldelem_Ref);
-                    il.Emit(OpCodes.Stsfld, statTarg32bitDll);
+                    il.Emit(OpCodes.Stsfld, statTargIlAsm);
                     if (AsmResolveMethodBuilder != null)
                     {
                         //AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
@@ -326,7 +326,7 @@ namespace Microsoft.Performance.ResponseTime
                     }
 
                     //var asmprog32 = Assembly.LoadFrom(args[0]);
-                    il.Emit(OpCodes.Ldsfld, statTarg32bitDll);
+                    il.Emit(OpCodes.Ldsfld, statTargIlAsm);
                     il.Emit(OpCodes.Call, typeof(Assembly).GetMethod("LoadFrom", new Type[] { typeof(string) }));
                     il.Emit(OpCodes.Stloc, locAsmTarg32);
 
@@ -410,10 +410,10 @@ namespace Microsoft.Performance.ResponseTime
                             // for (i = 0 ; i < params.length)
                             il.Emit(OpCodes.Ldc_I4_0);
                             il.Emit(OpCodes.Stloc, locIntParmLoopIndex);
-                            var labIncParamLoop = il.DefineLabel();
+                            var labCompareLoopConditionParamLoop = il.DefineLabel();
                             var labStartParamLoop = il.DefineLabel();
                             {
-                                il.Emit(OpCodes.Br, labIncParamLoop);
+                                il.Emit(OpCodes.Br, labCompareLoopConditionParamLoop);
                                 il.MarkLabel(labStartParamLoop);
 
                                 il.Emit(OpCodes.Ldloc, locParameterInfoArr);
@@ -421,17 +421,17 @@ namespace Microsoft.Performance.ResponseTime
                                 il.Emit(OpCodes.Ldelem_Ref);
                                 il.Emit(OpCodes.Callvirt, typeof(ParameterInfo).GetProperty("ParameterType").GetMethod);
                                 il.Emit(OpCodes.Callvirt, typeof(Type).GetProperty("Name").GetMethod);
-                                il.Emit(OpCodes.Stloc, locStrParameterName);
+                                il.Emit(OpCodes.Stloc, locStrParameterTypeName);
 
                                 if (logOutput)
                                 {
                                     il.Emit(OpCodes.Ldsfld, statStringBuilder);
-                                    il.Emit(OpCodes.Ldloc, locStrParameterName);
+                                    il.Emit(OpCodes.Ldloc, locStrParameterTypeName);
                                     il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
                                     il.Emit(OpCodes.Pop);
                                 }
                                 // if (name =="String")
-                                il.Emit(OpCodes.Ldloc, locStrParameterName);
+                                il.Emit(OpCodes.Ldloc, locStrParameterTypeName);
                                 il.Emit(OpCodes.Ldstr, "String");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
                                 var labNotString = il.DefineLabel();
@@ -446,12 +446,12 @@ namespace Microsoft.Performance.ResponseTime
                                 il.Emit(OpCodes.Add);
                                 il.Emit(OpCodes.Ldelem_Ref);
                                 il.Emit(OpCodes.Stelem_Ref);
-                                var labContParmLoop = il.DefineLabel();
-                                il.Emit(OpCodes.Br, labContParmLoop);
+                                var labIncrementParmLoop = il.DefineLabel();
+                                il.Emit(OpCodes.Br, labIncrementParmLoop);
 
                                 il.MarkLabel(labNotString);
                                 // if(name == "Int32")
-                                il.Emit(OpCodes.Ldloc, locStrParameterName);
+                                il.Emit(OpCodes.Ldloc, locStrParameterTypeName);
                                 il.Emit(OpCodes.Ldstr, "Int32");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
                                 var labNotInt32 = il.DefineLabel();
@@ -468,14 +468,14 @@ namespace Microsoft.Performance.ResponseTime
                                 il.Emit(OpCodes.Call, typeof(Int32).GetMethod("Parse", new Type[] { typeof(string) }));
                                 il.Emit(OpCodes.Box, typeof(Int32));
                                 il.Emit(OpCodes.Stelem_Ref);
-                                il.Emit(OpCodes.Br, labContParmLoop);
+                                il.Emit(OpCodes.Br, labIncrementParmLoop);
 
                                 il.MarkLabel(labNotInt32);
                                 // if(name == "Boolean")
-                                il.Emit(OpCodes.Ldloc, locStrParameterName);
+                                il.Emit(OpCodes.Ldloc, locStrParameterTypeName);
                                 il.Emit(OpCodes.Ldstr, "Boolean");
                                 il.Emit(OpCodes.Call, typeof(string).GetMethod("op_Equality", new Type[] { typeof(string), typeof(string) }));
-                                il.Emit(OpCodes.Brfalse, labContParmLoop);
+                                il.Emit(OpCodes.Brfalse, labIncrementParmLoop);
 
                                 // obj[i]=bool.Parse(args[i+argOffset])
                                 il.Emit(OpCodes.Ldloc, locObjArrArgsToPass); //obj[]
@@ -490,13 +490,13 @@ namespace Microsoft.Performance.ResponseTime
                                 il.Emit(OpCodes.Stelem_Ref);
 
 
-                                il.MarkLabel(labContParmLoop);
+                                il.MarkLabel(labIncrementParmLoop);
                                 il.Emit(OpCodes.Ldloc, locIntParmLoopIndex);
                                 il.Emit(OpCodes.Ldc_I4_1);
                                 il.Emit(OpCodes.Add);
                                 il.Emit(OpCodes.Stloc, locIntParmLoopIndex);
 
-                                il.MarkLabel(labIncParamLoop);
+                                il.MarkLabel(labCompareLoopConditionParamLoop);
                                 il.Emit(OpCodes.Ldloc, locIntParmLoopIndex);
                                 il.Emit(OpCodes.Ldloc, locParameterInfoArr);
                                 il.Emit(OpCodes.Ldlen);
@@ -582,6 +582,15 @@ namespace Microsoft.Performance.ResponseTime
                     il.Emit(OpCodes.Ldelem_Ref);
                     il.Emit(OpCodes.Call, typeof(Exception).GetMethod("ToString", new Type[0]));
                     il.Emit(OpCodes.Stloc, locStrTemp);
+                    if (logOutput)
+                    {
+                        il.Emit(OpCodes.Ldsfld, statStringBuilder);
+                        il.Emit(OpCodes.Ldstr, "LoaderException thrown");
+                        il.Emit(OpCodes.Callvirt, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Ldloc, locStrTemp);
+                        il.Emit(OpCodes.Call, typeof(StringBuilder).GetMethod("AppendLine", new Type[] { typeof(string) }));
+                        il.Emit(OpCodes.Pop);
+                    }
                     il.Emit(OpCodes.Leave, labAfterExceptionBlock);
                 }
                 il.BeginCatchBlock(typeof(Exception)); // exception is on eval stack

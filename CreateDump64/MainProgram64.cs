@@ -86,14 +86,18 @@ Signed    : 0
                 targ32bitDll = args[0];
                 var asmprog32 = Assembly.LoadFrom(targ32bitDll);
                 //                var typs = asmprog32.DefinedTypes;
-                foreach (var type in asmprog32.GetExportedTypes())
+                foreach (var type in asmprog32.GetTypes())
                 {
                     if (type.Name == args[1])
                     {
                         var methCollectDump = type.GetMethod(args[2]);
-                        var memdumpHelper = Activator.CreateInstance(type);
+                        object memdumpHelper = null;
+                        if (!type.IsAbstract) // static
+                        {
+                            memdumpHelper = Activator.CreateInstance(type);
+                        }
                         var pidAsString = int.Parse(args[3]);
-                        var argsToPass = new object[] {pidAsString, args[4], true };
+                        var argsToPass = new object[] { pidAsString, args[4], true };
                         methCollectDump.Invoke(memdumpHelper, argsToPass);
                         break;
                     }

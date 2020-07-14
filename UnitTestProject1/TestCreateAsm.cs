@@ -96,7 +96,7 @@ namespace UnitTestProject1
                 _tempExeName,
                 PortableExecutableKinds.PE32Plus,
                 ImageFileMachine.AMD64,
-                AdditionalAssemblyPaths: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
+                additionalAssemblyPaths: Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies"),
                 logOutput: true
             );
             Assert.IsTrue(File.Exists(_tempExeName), "generated asm not found");
