@@ -69,7 +69,7 @@ namespace CreateDump
                     {
 
                         resultMiniDumpWriteDump = MiniDumpWriteDump(
-                              hProcess: process.Handle,
+                              hProcess: snapshotHandle,
                               ProcessId: process.Id,
                               hFile: hFile,
                               DumpType: dumpType,

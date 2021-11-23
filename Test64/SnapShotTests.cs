@@ -17,10 +17,10 @@ namespace UnitTestProject1
         public void TestMethod1()
         {
             TestContext.WriteLine($"Starting test IntPtr.Size = {IntPtr.Size}");
-            var procDevEnv = Process.GetProcessesByName("devenv").Where(p => p.MainWindowTitle.Contains("CreateDump")).First();
+            var procDevEnv = Process.GetProcessesByName("devenv").Where(p => p.MainWindowTitle.Contains("vsdbg")).First();
             TestContext.WriteLine($"proc {procDevEnv.MainWindowTitle}, {procDevEnv.Handle:x8}");
             var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
-            MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: false);
+            MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: true);
 
             Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
             var dumpSize = new FileInfo(dumpFilename).Length;
