@@ -20,7 +20,7 @@ namespace UnitTestProject1
         [TestInitialize]
         public void TestInit()
         {
-            TestContext.WriteLine($"{DateTime.Now} Starting test {TestContext.TestName}");
+            TestContext.WriteLine($"{DateTime.Now} Starting test {TestContext.TestName} IntPtr.Size = {IntPtr.Size}");
             _tempExeName = Path.ChangeExtension(Path.GetTempFileName(), ".exe");
             // for debugging, use fixed file locations: tools can just reload/refresh
             _tempExeName = Path.Combine(
