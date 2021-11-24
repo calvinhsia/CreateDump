@@ -27,6 +27,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CppCreateDump", "CppCreateD
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CppCreateDumpLib", "CppCreateDumpLib\CppCreateDumpLib.vcxproj", "{82F15993-E887-4DD4-90D1-8C386D0757D6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{57658964-82B6-4356-87A8-2A9A201A5BA1} = {57658964-82B6-4356-87A8-2A9A201A5BA1}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

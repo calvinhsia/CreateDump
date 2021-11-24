@@ -2,6 +2,12 @@
 
 #include <minidumpapiset.h>
 #include <processsnapshot.h>
+#include <atlbase.h>
+#include <atlcom.h>
+#include <initguid.h>
+
+#import "..\Test64\bin\debug\Test64.tlb" no_namespace
+
 
 
 
@@ -129,3 +135,79 @@ extern "C" int __declspec(dllexport) __stdcall CreateDump(int pidToDump, int Use
 	HRESULT hr = createdump(pidToDump, UseSnapshot, dumpFilePath);
 	return hr;
 }
+
+// {E3E00445-C0EA-4AB2-BF1C-309358F7EC3A}
+DEFINE_GUID(CLSID_CreateDump ,
+	0xe3e00445, 0xc0ea, 0x4ab2, 0xbf, 0x1c, 0x30, 0x93, 0x58, 0xf7, 0xec, 0x3a);
+
+
+class MyCreateDump :
+	public ICreateDump,
+	public CComObjectRootEx<CComSingleThreadModel>,
+	public CComCoClass<MyCreateDump, &CLSID_CreateDump>
+
+{
+public:
+	BEGIN_COM_MAP(MyCreateDump)
+		COM_INTERFACE_ENTRY_IID(CLSID_CreateDump, MyCreateDump)
+		COM_INTERFACE_ENTRY(ICreateDump)
+	END_COM_MAP()
+	DECLARE_NOT_AGGREGATABLE(MyCreateDump)
+	DECLARE_NO_REGISTRY()
+
+	HRESULT __stdcall raw_CreateDump(
+		/*[in]*/ long PidToDump,
+		/*[in]*/ long UseSnapshot,
+		/*[in]*/ BSTR pathDumpFileName,
+		/*[out,retval]*/ long* pRetVal)
+	{
+		HRESULT hr = createdump(PidToDump, UseSnapshot, pathDumpFileName);
+		return hr;
+	}
+
+};
+
+OBJECT_ENTRY_AUTO(CLSID_CreateDump, MyCreateDump)
+
+// define a class that represents this module
+class CCreateDumpModule : public ATL::CAtlDllModuleT< CCreateDumpModule >
+{
+#if _DEBUG
+public:
+	CCreateDumpModule()
+	{
+		int x = 0; // set a bpt here
+	}
+	~CCreateDumpModule()
+	{
+		int x = 0; // set a bpt here
+	}
+#endif _DEBUG
+};
+
+
+// instantiate a static instance of this class on module load
+CCreateDumpModule _AtlModule;
+// this gets called by CLR due to env var settings
+_Check_return_
+STDAPI DllGetClassObject(__in REFCLSID rclsid, __in REFIID riid, __deref_out LPVOID FAR* ppv)
+{
+	HRESULT hr = E_FAIL;
+	hr = AtlComModuleGetClassObject(&_AtlComModule, rclsid, riid, ppv);
+	//  hr= CComModule::GetClassObject();
+	return hr;
+}
+//tell the linker to export the function
+#pragma comment(linker, "/EXPORT:DllGetClassObject,PRIVATE")
+//#pragma comment(linker, "/EXPORT:DllGetClassObject=_DllGetClassObject@12,PRIVATE")
+
+__control_entrypoint(DllExport)
+STDAPI DllCanUnloadNow()
+{
+	return S_OK;
+}
+//tell the linker to export the function
+#pragma comment(linker, "/EXPORT:DllCanUnloadNow,PRIVATE")
+//#pragma comment(linker, "/EXPORT:DllCanUnloadNow=_DllCanUnloadNow@0,PRIVATE")
+
+

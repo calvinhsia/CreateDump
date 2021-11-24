@@ -52,6 +52,9 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Test64\CallCom.cs">
+      <Link>CallCom.cs</Link>
+    </Compile>
     <Compile Include="..\Test64\SnapShotTests.cs">
       <Link>SnapShotTests.cs</Link>
     </Compile>
