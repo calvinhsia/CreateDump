@@ -20,12 +20,11 @@ BOOL CALLBACK MyMiniDumpWriteDumpCallback(
 	return TRUE;
 }
 
-void createdump(int fUseSnapshot)
+int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath)
 {
-	auto pidDevenv64 = 60016;
-	auto hDevenv = OpenProcess(PROCESS_ALL_ACCESS, false, pidDevenv64);
+	HRESULT hr = S_OK;
+	auto hDevenv = OpenProcess(PROCESS_ALL_ACCESS, false, pidToDump);
 	//	auto hDevenv = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE, false, pidDevenv64);
-	auto dumpFilePath = L"c:\\t1.dmp";
 	DeleteFile(dumpFilePath);
 
 	auto hFile = CreateFile( // will overwrite file if exists.
@@ -79,7 +78,7 @@ void createdump(int fUseSnapshot)
 
 			if (!MiniDumpWriteDump(
 				hSnapshot,
-				pidDevenv64,
+				pidToDump,
 				hFile,
 				(MINIDUMP_TYPE)dumpFlags,
 				&excepinfo,
@@ -98,14 +97,14 @@ void createdump(int fUseSnapshot)
 		}
 		else
 		{
-			auto hr = GetLastError();
+			hr = GetLastError();
 		}
 	}
 	else
 	{
-		if (MiniDumpWriteDump(
+		if (!MiniDumpWriteDump(
 			hDevenv,
-			pidDevenv64,
+			pidToDump,
 			hFile,
 			(MINIDUMP_TYPE)dumpFlags,
 			&excepinfo,
@@ -114,21 +113,19 @@ void createdump(int fUseSnapshot)
 
 		))
 		{
-
+			hr = GetLastError();
 
 		}
 		auto res2 = CloseHandle(hFile);
 	}
-
-
-
 	auto res = CloseHandle(hDevenv);
+	return hr;
 }
 
 
 
-extern "C" int __declspec(dllexport) __stdcall CreateDump(int UseSnapshot)
+extern "C" int __declspec(dllexport) __stdcall CreateDump(int pidToDump, int UseSnapshot, LPCWSTR dumpFilePath)
 {
-	createdump(UseSnapshot);
-	return 0;
+	HRESULT hr = createdump(pidToDump, UseSnapshot, dumpFilePath);
+	return hr;
 }

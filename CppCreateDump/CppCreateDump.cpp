@@ -33,9 +33,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	{
 		return 1;
 	}
-	typedef int(*pCreateDumpType)(int);
+	typedef int(*pCreateDumpType)(int pidToDump, int useSnapShot, LPCWSTR dumpFilePath);
 	auto pCreateDump = reinterpret_cast<pCreateDumpType>(GetProcAddress(hModule, "CreateDump"));
-	pCreateDump(1);
+	auto pidDevenv64 = 60016;
+
+	pCreateDump(pidDevenv64, 1, L"C:\\t1.dmp");
 
 
 //	createdump(true);
