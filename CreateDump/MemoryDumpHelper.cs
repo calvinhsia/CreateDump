@@ -54,7 +54,7 @@ namespace CreateDump
 
 
                 MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = new NativeMethods.MINIDUMP_EXCEPTION_INFORMATION();
-                _MINIDUMP_CALLBACK_INFORMATION callbackInfo;
+                MINIDUMP_CALLBACK_INFORMATION callbackInfo;
                 callbackInfo.CallbackParam = new IntPtr(0x1234);
                 callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
                 GC.KeepAlive(callbackInfo);
@@ -424,7 +424,7 @@ namespace CreateDump
             [DllImport("kernel32.dll")]
             public static extern int PssFreeSnapshot(IntPtr ProcessHandle, IntPtr SnapshotHandle);
 
-            public struct _MINIDUMP_CALLBACK_INFORMATION
+            public struct MINIDUMP_CALLBACK_INFORMATION
             {
                 public IntPtr CallbackRoutine;
                 public IntPtr CallbackParam;

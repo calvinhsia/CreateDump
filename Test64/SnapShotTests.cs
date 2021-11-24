@@ -13,7 +13,7 @@ namespace UnitTestProject1
         public TestContext TestContext { get; set; }
 
         [TestInitialize]
-        public void inittest()
+        public void Inittest()
         {
             TestContext.WriteLine($"Starting test IntPtr.Size = {IntPtr.Size}");
         }

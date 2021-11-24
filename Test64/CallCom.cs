@@ -21,6 +21,10 @@ namespace UnitTestProject1
                 throw new FileNotFoundException(dllname);
             }
             var hr = CoCreateFromFile(dllname, guidComClass, typeof(ICreateDump).GUID, out var pObject);
+            if (hr != 0)
+            {
+                throw new InvalidOperationException($"Couldn't create obj {hr:x8} {Marshal.GetExceptionForHR(hr)}");
+            }
             var iCreateDump = (ICreateDump)Marshal.GetTypedObjectForIUnknown(pObject, typeof(ICreateDump));
             return iCreateDump;
         }
@@ -78,13 +82,13 @@ namespace UnitTestProject1
                     else
                     {
                         hr = Marshal.GetHRForLastWin32Error();
-                        Debug.Assert(false, $"Unable to find DllGetClassObject: {hr}");
+                        throw new InvalidOperationException( $"Unable to find DllGetClassObject: {hr} {Marshal.GetExceptionForHR(hr)}");
                     }
                 }
                 else
                 {
                     hr = Marshal.GetHRForLastWin32Error();
-                    Debug.Assert(false, $"Unable to load {fnameComClass}: {hr}");
+                    throw new InvalidOperationException($"Unable to load {fnameComClass}: {hr} {Marshal.GetExceptionForHR(hr)}");
                 }
             }
             catch (Exception ex)
