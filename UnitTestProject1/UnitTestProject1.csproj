@@ -52,6 +52,9 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Test64\SnapShotTests.cs">
+      <Link>SnapShotTests.cs</Link>
+    </Compile>
     <Compile Include="TestCreateAsm.cs" />
     <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

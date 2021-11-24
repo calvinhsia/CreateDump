@@ -7,16 +7,20 @@ namespace CreateDump
     using static MemoryDumpHelper.NativeMethods;
     public class MemoryDumpHelper
     {
+        static bool s_UseSnapShot = false;
         /// <summary>
         /// Collects a mini dump (optionally with full memory) for the given process and writes it to the given file path
         /// </summary>
         public static void CollectDump(int ProcessId, string dumpFilePath, bool fIncludeFullHeap, bool UseSnapshot = false)
         {
+            s_UseSnapShot = UseSnapshot;
             var process = Process.GetProcessById(ProcessId);
             //LoggerBase.WriteInformation($"Dump collection started. FullHeap= {fIncludeFullHeap} {dumpFilePath}");
 
             IntPtr hFile = IntPtr.Zero;
-
+            IntPtr snapshotHandle = IntPtr.Zero;
+            IntPtr ptrCallBackInfo = IntPtr.Zero;
+            SafeHandlePssSnapshot safeHandlePssSnapshot = null;
             try
             {
                 hFile = NativeMethods.CreateFile( // will overwrite file if exists.
@@ -35,6 +39,7 @@ namespace CreateDump
                     Exception hresultException = Marshal.GetExceptionForHR(hresult);
                     throw hresultException;
                 }
+                GC.KeepAlive(hFile);
                 bool resultMiniDumpWriteDump = false;
                 // Ensure the dump file will contain all the info needed (full memory, handle, threads)
                 NativeMethods.MINIDUMP_TYPE dumpType = NativeMethods.MINIDUMP_TYPE.MiniDumpNormal
@@ -49,10 +54,16 @@ namespace CreateDump
 
 
                 MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = new NativeMethods.MINIDUMP_EXCEPTION_INFORMATION();
-
+                _MINIDUMP_CALLBACK_INFORMATION callbackInfo;
+                callbackInfo.CallbackParam = new IntPtr(0x1234);
+                callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
+                GC.KeepAlive(callbackInfo);
+                ptrCallBackInfo = Marshal.AllocHGlobal(Marshal.SizeOf(callbackInfo));
+                Marshal.StructureToPtr(callbackInfo, ptrCallBackInfo, fDeleteOld: false);
                 if (UseSnapshot)
                 {
-                    var CaptureFlags = PssCaptureFlags.PSS_CAPTURE_VA_CLONE
+                    var CaptureFlags =
+                        PssCaptureFlags.PSS_CAPTURE_VA_CLONE
                                     | PssCaptureFlags.PSS_CAPTURE_HANDLES
                                     | PssCaptureFlags.PSS_CAPTURE_HANDLE_NAME_INFORMATION
                                     | PssCaptureFlags.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
@@ -61,26 +72,28 @@ namespace CreateDump
                                     | PssCaptureFlags.PSS_CAPTURE_THREADS
                                     | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT
                                     | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
+                                    | PssCaptureFlags.PSS_CAPTURE_IPT_TRACE
                                     | PssCaptureFlags.PSS_CREATE_BREAKAWAY
                                     | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
                                     | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
                                     | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
-                    if (PssCaptureSnapshot(process.Handle, CaptureFlags, 0, out var snapshotHandle) == 0)
+                    ;
+                    var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
+                    //                    callbackInfo.CallbackRoutine = MinidumpCallBackForSnapshot;
+                    var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(process.Handle, ownsHandle:true);
+                    if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
                     {
-
+                        safeHandlePssSnapshot = new SafeHandlePssSnapshot(snapshotHandle);
+                        GC.KeepAlive(snapshotHandle);
                         resultMiniDumpWriteDump = MiniDumpWriteDump(
-                              hProcess: snapshotHandle,
+                              hProcess: safeHandlePssSnapshot.DangerousGetHandle(),
                               ProcessId: process.Id,
                               hFile: hFile,
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
                               UserStreamParam: IntPtr.Zero,
-                              callback: MinidumpCallBackForSnapshot
+                              CallbackInfo: ptrCallBackInfo
                             );
-                        if (PssFreeSnapshot(process.Handle, snapshotHandle) == 0)
-                        {
-                            //                            TestContext.WriteLine($"Error free snapshot");
-                        }
 
                     }
                     else
@@ -99,7 +112,7 @@ namespace CreateDump
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
                               UserStreamParam: IntPtr.Zero,
-                              callback: null
+                              CallbackInfo: ptrCallBackInfo
                         );
 
                 }
@@ -113,25 +126,76 @@ namespace CreateDump
             }
             finally
             {
+                safeHandlePssSnapshot?.Dispose();
                 NativeMethods.CloseHandle(hFile);
+                Marshal.FreeHGlobal(ptrCallBackInfo);
             }
 
             //LoggerBase.WriteInformation("Dump collection complete.");
         }
-        static bool MinidumpCallBackForSnapshot(IntPtr CallBackParam, MINIDUMP_CALLBACK_INPUT input, out MINIDUMP_CALLBACK_OUTPUT output)
+        static bool MinidumpCallBackForSnapshot(IntPtr CallBackParam, IntPtr pinput, IntPtr poutput)
         {
-            output.Status = 0;
-            switch (input.CallbackType)
+            if (IntPtr.Size == 8)
             {
-                case 16: //IsProcessSnapshotCallback
-                    output.Status = 1;//S_FALSE
-                    break;
-
+                var input = Marshal.PtrToStructure<MINIDUMP_CALLBACK_INPUT64>(pinput);
+                var output = Marshal.PtrToStructure<MINIDUMP_CALLBACK_OUTPUT>(poutput);
+                switch (input.CallbackType)
+                {
+                    case 16: //IsProcessSnapshotCallback
+                        if (s_UseSnapShot)
+                        {
+                            output.Status = S_FALSE;
+                        }
+                        else
+                        {
+                            output.Status = S_OK;
+                        }
+                        break;
+                }
+            }
+            else
+            {
+                var input = Marshal.PtrToStructure<MINIDUMP_CALLBACK_INPUT32>(pinput);
+                var output = Marshal.PtrToStructure<MINIDUMP_CALLBACK_OUTPUT>(poutput);
+                switch (input.CallbackType)
+                {
+                    case 16: //IsProcessSnapshotCallback
+                        if (s_UseSnapShot)
+                        {
+                            output.Status = S_FALSE;
+                        }
+                        else
+                        {
+                            output.Status = S_OK;
+                        }
+                        break;
+                }
             }
             return true;
         }
+        public class SafeHandlePssSnapshot : SafeHandle
+        {
+            public SafeHandlePssSnapshot() : base(INVALID_HANDLE_VALUE, ownsHandle: true)
+            {
+
+            }
+            public SafeHandlePssSnapshot(IntPtr pssSnapshotHandle) : base(INVALID_HANDLE_VALUE, ownsHandle: true)
+            {
+                this.handle = pssSnapshotHandle;
+            }
+            public override bool IsInvalid => handle == INVALID_HANDLE_VALUE;
+
+            protected override bool ReleaseHandle()
+            {
+                PssFreeSnapshot(GetCurrentProcess(), handle);
+                handle = INVALID_HANDLE_VALUE;
+                return true;
+            }
+        }
         internal class NativeMethods
         {
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern IntPtr GetCurrentProcess();
             [Flags]
             public enum EFileShare : uint
             {
@@ -291,6 +355,43 @@ namespace CreateDump
                 OpenNoRecall = 0x00100000,
                 FirstPipeInstance = 0x00080000
             }
+            public const int S_FALSE = 1;
+            public const int S_OK = 0;
+            /*
+#define CONTEXT_AMD64   0x00100000L
+
+            // end_wx86
+
+#define CONTEXT_CONTROL         (CONTEXT_AMD64 | 0x00000001L)
+#define CONTEXT_INTEGER         (CONTEXT_AMD64 | 0x00000002L)
+#define CONTEXT_SEGMENTS        (CONTEXT_AMD64 | 0x00000004L)
+#define CONTEXT_FLOATING_POINT  (CONTEXT_AMD64 | 0x00000008L)
+#define CONTEXT_DEBUG_REGISTERS (CONTEXT_AMD64 | 0x00000010L)
+
+#define CONTEXT_FULL            (CONTEXT_CONTROL | CONTEXT_INTEGER | \
+            CONTEXT_FLOATING_POINT)
+
+#define CONTEXT_ALL             (CONTEXT_CONTROL | CONTEXT_INTEGER | \
+                                 CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT | \
+                                 CONTEXT_DEBUG_REGISTERS)
+*/
+            [Flags]
+            public enum CONTEXT
+            {
+                CONTEXT_i386 = 0x00010000,    // this assumes that i386 and
+                CONTEXT_i486 = 0x00010000,    // i486 have identical context records
+                CONTEXT_ARM = 0x00200000,
+                CONTEXT_AMD64 = 0x00100000,
+
+                CONTEXT_CONTROL = (CONTEXT_AMD64 | 0x00000001),
+                CONTEXT_INTEGER = (CONTEXT_AMD64 | 0x00000002),
+                CONTEXT_SEGMENTS = (CONTEXT_AMD64 | 0x00000004),
+                CONTEXT_FLOATING_POINT = (CONTEXT_AMD64 | 0x00000008),
+                CONTEXT_DEBUG_REGISTERS = (CONTEXT_AMD64 | 0x00000010),
+                CONTEXT_FULL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_FLOATING_POINT),
+                CONTEXT_ALL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS)
+            }
+
             [Flags]
             public enum PssCaptureFlags
             {
@@ -319,24 +420,53 @@ namespace CreateDump
             }
             // https://docs.microsoft.com/en-us/windows/win32/api/processsnapshot/nf-processsnapshot-psscapturesnapshot
             [DllImport("kernel32.dll")]
-            public static extern int PssCaptureSnapshot(IntPtr ProcessHandle, PssCaptureFlags capture, uint ThreadContextFlags, out IntPtr SnapshotHandle);
+            public static extern int PssCaptureSnapshot(IntPtr ProcessHandle, PssCaptureFlags capture, uint ThreadContextFlags, ref IntPtr SnapshotHandle);
             [DllImport("kernel32.dll")]
             public static extern int PssFreeSnapshot(IntPtr ProcessHandle, IntPtr SnapshotHandle);
 
-            public struct MINIDUMP_CALLBACK_INPUT
+            public struct _MINIDUMP_CALLBACK_INFORMATION
             {
+                public IntPtr CallbackRoutine;
+                public IntPtr CallbackParam;
+            }
+            [StructLayout(LayoutKind.Explicit)]
+            public struct MINIDUMP_CALLBACK_INPUT32
+            {
+                [FieldOffset(0)]
                 public uint processId;
+                [FieldOffset(4)]
                 public IntPtr ProcessHandle;
+                [FieldOffset(8)]
                 public uint CallbackType;
+                [FieldOffset(12)]
                 public IntPtr union;
             }
+            [StructLayout(LayoutKind.Explicit)]
+            public struct MINIDUMP_CALLBACK_INPUT64
+            {
+                [FieldOffset(0)]
+                public uint processId;
+                [FieldOffset(4)]
+                public IntPtr ProcessHandle;
+                [FieldOffset(12)]
+                public uint CallbackType;
+                [FieldOffset(16)]
+                public IntPtr union;
+            }
+            [StructLayout(LayoutKind.Explicit)]
             public struct MINIDUMP_CALLBACK_OUTPUT
             {
-
+                [FieldOffset(0)]
                 public uint Status;
+                [FieldOffset(0)]
+                public IntPtr handle;
+                [FieldOffset(0)]
+                public uint ModuleWriteFlags;
+
             }
             //C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um\minidumpapiset.h
-            public delegate bool MinidumpCallbackRoutine(IntPtr CallBackParam, MINIDUMP_CALLBACK_INPUT callbackInput, out MINIDUMP_CALLBACK_OUTPUT mINIDUMP_CALLBACK_OUTPUT);
+            [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+            public delegate bool MinidumpCallbackRoutine(IntPtr CallBackParam, IntPtr pcallbackInput, IntPtr pMINIDUMP_CALLBACK_OUTPUT);
 
 
             //https://msdn.microsoft.com/en-us/library/windows/desktop/ms680519%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
@@ -392,6 +522,7 @@ namespace CreateDump
                 );
 
             //https://msdn.microsoft.com/en-us/library/windows/desktop/bb513622(v=vs.85).aspx
+            // https://microsoft.visualstudio.com/DefaultCollection/OS/_git/os.2020?path=/onecore/sdktools/debuggers/minidump/minidump.cpp&version=GBofficial/main&line=5394&lineEnd=5395&lineStartColumn=1&lineEndColumn=1&lineStyle=plain&_a=contents
             [DllImport("Dbghelp.dll", SetLastError = true)]
             public static extern bool MiniDumpWriteDump(
                     IntPtr hProcess,
@@ -400,7 +531,7 @@ namespace CreateDump
                     MINIDUMP_TYPE DumpType,
                     ref MINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
                     IntPtr UserStreamParam,
-                    MinidumpCallbackRoutine callback
+                    IntPtr CallbackInfo
                 );
 
             // I explicitly DONT caputure GetLastError information on this call because it is often used to

@@ -94,7 +94,7 @@ void createdump(bool fUseSnapshot)
 			) == S_OK)
 		{
 
-			if (MiniDumpWriteDump(
+			if (!MiniDumpWriteDump(
 				hSnapshot,
 				pidDevenv64,
 				hFile,
@@ -105,7 +105,7 @@ void createdump(bool fUseSnapshot)
 
 			))
 			{
-
+				auto hr = GetLastError();
 
 			}
 			auto x = 2;
