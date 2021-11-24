@@ -98,10 +98,9 @@ namespace UnitTestProject1
         }
         Assembly MyAsmResolver(object sender, ResolveEventArgs args)
         {
-            Assembly asm = null;
             var privAsmDir = Path.Combine(Path.GetDirectoryName(_targ32bitPWDll), "PrivateAssemblies");
             var requestName = args.Name.Substring(0, args.Name.IndexOf(",")); // Microsoft.VisualStudio.Telemetry, Version=16.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-            asm = Assembly.LoadFrom(Path.Combine(privAsmDir, $"{requestName}.dll"));
+            Assembly asm = Assembly.LoadFrom(Path.Combine(privAsmDir, $"{requestName}.dll"));
             return asm;
 
         }

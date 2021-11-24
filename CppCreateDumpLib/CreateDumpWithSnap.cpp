@@ -26,7 +26,7 @@ BOOL CALLBACK MyMiniDumpWriteDumpCallback(
 	return TRUE;
 }
 
-int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath)
+int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hSnapshotFromCaller)
 {
 	HRESULT hr = S_OK;
 	auto hDevenv = OpenProcess(PROCESS_ALL_ACCESS, false, pidToDump);
@@ -75,13 +75,16 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath)
 		CallbackInfo.CallbackParam = NULL;
 
 		HPSS hSnapshot = NULL;
-		if (PssCaptureSnapshot(hDevenv,
-			CaptureFlags,
-			CONTEXT_ALL, // DWORD ThreadContextFlags
-			&hSnapshot
-		) == S_OK)
+		if (hSnapshotFromCaller != 0)
 		{
-
+			hSnapshot = reinterpret_cast<HPSS>(hSnapshotFromCaller);
+		}
+		if (hSnapshotFromCaller != 0 || PssCaptureSnapshot(hDevenv,
+				CaptureFlags,
+				CONTEXT_ALL, // DWORD ThreadContextFlags
+				&hSnapshot
+			) == S_OK)
+		{
 			if (!MiniDumpWriteDump(
 				hSnapshot,
 				pidToDump,
@@ -132,7 +135,7 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath)
 
 extern "C" int __declspec(dllexport) __stdcall CreateDump(int pidToDump, int UseSnapshot, LPCWSTR dumpFilePath)
 {
-	HRESULT hr = createdump(pidToDump, UseSnapshot, dumpFilePath);
+	HRESULT hr = createdump(pidToDump, UseSnapshot, dumpFilePath, 0);
 	return hr;
 }
 
@@ -161,7 +164,16 @@ public:
 		/*[in]*/ BSTR pathDumpFileName,
 		/*[out,retval]*/ long* pRetVal)
 	{
-		HRESULT hr = createdump(PidToDump, UseSnapshot, pathDumpFileName);
+		HRESULT hr = createdump(PidToDump, UseSnapshot, pathDumpFileName, 0);
+		return hr;
+	}
+	virtual HRESULT __stdcall raw_CreateDumpFromPSSSnapshot(
+		/*[in]*/ long PidToDump,
+		/*[in]*/ __int64 hSnapshot,
+		/*[in]*/ BSTR pathDumpFileName,
+		/*[out,retval]*/ long* pRetVal)
+	{
+		HRESULT hr = createdump(PidToDump, 1, pathDumpFileName, hSnapshot);
 		return hr;
 	}
 

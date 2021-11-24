@@ -80,7 +80,7 @@ namespace CreateDump
                     ;
                     var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
                     //                    callbackInfo.CallbackRoutine = MinidumpCallBackForSnapshot;
-                    var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(process.Handle, ownsHandle:true);
+                    var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(process.Handle, ownsHandle: true);
                     if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
                     {
                         safeHandlePssSnapshot = new SafeHandlePssSnapshot(snapshotHandle);
@@ -393,30 +393,30 @@ namespace CreateDump
             }
 
             [Flags]
-            public enum PssCaptureFlags
+            public enum PssCaptureFlags : uint
             {
                 PSS_CAPTURE_NONE,
-                PSS_CAPTURE_VA_CLONE,
-                PSS_CAPTURE_RESERVED_00000002,
-                PSS_CAPTURE_HANDLES,
-                PSS_CAPTURE_HANDLE_NAME_INFORMATION,
-                PSS_CAPTURE_HANDLE_BASIC_INFORMATION,
-                PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION,
-                PSS_CAPTURE_HANDLE_TRACE,
-                PSS_CAPTURE_THREADS,
-                PSS_CAPTURE_THREAD_CONTEXT,
-                PSS_CAPTURE_THREAD_CONTEXT_EXTENDED,
-                PSS_CAPTURE_RESERVED_00000400,
-                PSS_CAPTURE_VA_SPACE,
-                PSS_CAPTURE_VA_SPACE_SECTION_INFORMATION,
-                PSS_CAPTURE_IPT_TRACE,
-                PSS_CAPTURE_RESERVED_00004000,
-                PSS_CREATE_BREAKAWAY_OPTIONAL,
-                PSS_CREATE_BREAKAWAY,
-                PSS_CREATE_FORCE_BREAKAWAY,
-                PSS_CREATE_USE_VM_ALLOCATIONS,
-                PSS_CREATE_MEASURE_PERFORMANCE,
-                PSS_CREATE_RELEASE_SECTION
+                PSS_CAPTURE_VA_CLONE = 0x1,
+                PSS_CAPTURE_RESERVED_00000002 = 0x2,
+                PSS_CAPTURE_HANDLES = 0x4,
+                PSS_CAPTURE_HANDLE_NAME_INFORMATION = 0x8,
+                PSS_CAPTURE_HANDLE_BASIC_INFORMATION = 0x10,
+                PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION = 0x20,
+                PSS_CAPTURE_HANDLE_TRACE = 0x40,
+                PSS_CAPTURE_THREADS = 0x80,
+                PSS_CAPTURE_THREAD_CONTEXT = 0x100,
+                PSS_CAPTURE_THREAD_CONTEXT_EXTENDED = 0x200,
+                PSS_CAPTURE_RESERVED_00000400 = 0x400,
+                PSS_CAPTURE_VA_SPACE = 0x800,
+                PSS_CAPTURE_VA_SPACE_SECTION_INFORMATION = 0x1000,
+                PSS_CAPTURE_IPT_TRACE = 0x2000,
+                PSS_CAPTURE_RESERVED_00004000 = 0x4000,
+                PSS_CREATE_BREAKAWAY_OPTIONAL = 0x04000000,
+                PSS_CREATE_BREAKAWAY = 0x08000000,
+                PSS_CREATE_FORCE_BREAKAWAY = 0x10000000,
+                PSS_CREATE_USE_VM_ALLOCATIONS = 0x20000000,
+                PSS_CREATE_MEASURE_PERFORMANCE = 0x40000000,
+                PSS_CREATE_RELEASE_SECTION = 0x80000000
             }
             // https://docs.microsoft.com/en-us/windows/win32/api/processsnapshot/nf-processsnapshot-psscapturesnapshot
             [DllImport("kernel32.dll")]

@@ -10,6 +10,17 @@ using System.Threading.Tasks;
 
 namespace UnitTestProject1
 {
+
+    [ComVisible(true)]
+    [Guid("2DCA6610-6BB6-44A1-AD82-5175FFDDC955")] // {2DCA6610-6BB6-44A1-AD82-5175FFDDC955}
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface ICreateDump
+    {
+        int CreateDump(int PidToDump, int UseSnapshot, string pathDumpFileName);
+        int CreateDumpFromPSSSnapshot(int PidToDump, IntPtr hSnapshot, string pathDumpFileName);
+
+
+    }
     public class CallCom
     {
         public ICreateDump  GetInterfaceICreateDump()
@@ -119,12 +130,4 @@ namespace UnitTestProject1
         }
     }
 
-
-    [ComVisible(true)]
-    [Guid("2DCA6610-6BB6-44A1-AD82-5175FFDDC955")] // {2DCA6610-6BB6-44A1-AD82-5175FFDDC955}
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    public interface ICreateDump
-    {
-        int CreateDump(int PidToDump, int UseSnapshot, string pathDumpFileName);
-    }
 }
