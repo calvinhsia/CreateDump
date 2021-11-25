@@ -7,13 +7,18 @@ namespace CreateDump
     using static MemoryDumpHelper.NativeMethods;
     public class MemoryDumpHelper
     {
-        static bool s_UseSnapShot = false;
+        bool _fUseSnapShot = false;
         /// <summary>
         /// Collects a mini dump (optionally with full memory) for the given process and writes it to the given file path
         /// </summary>
         public static void CollectDump(int ProcessId, string dumpFilePath, bool fIncludeFullHeap, bool UseSnapshot = false)
         {
-            s_UseSnapShot = UseSnapshot;
+            var oMemoryDumpHelper = new MemoryDumpHelper();
+            oMemoryDumpHelper.CollectDumpEx(ProcessId, dumpFilePath, fIncludeFullHeap, UseSnapshot);
+        }
+        public void CollectDumpEx(int ProcessId, string dumpFilePath, bool fIncludeFullHeap, bool UseSnapshot = false)
+        {
+            _fUseSnapShot = UseSnapshot;
             var process = Process.GetProcessById(ProcessId);
             //LoggerBase.WriteInformation($"Dump collection started. FullHeap= {fIncludeFullHeap} {dumpFilePath}");
 
@@ -81,6 +86,7 @@ namespace CreateDump
                     var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
                     //                    callbackInfo.CallbackRoutine = MinidumpCallBackForSnapshot;
                     var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(process.Handle, ownsHandle: true);
+
                     if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
                     {
                         safeHandlePssSnapshot = new SafeHandlePssSnapshot(snapshotHandle);
@@ -133,7 +139,7 @@ namespace CreateDump
 
             //LoggerBase.WriteInformation("Dump collection complete.");
         }
-        static bool MinidumpCallBackForSnapshot(IntPtr CallBackParam, IntPtr pinput, IntPtr poutput)
+        bool MinidumpCallBackForSnapshot(IntPtr CallBackParam, IntPtr pinput, IntPtr poutput)
         {
             if (IntPtr.Size == 8)
             {
@@ -142,7 +148,7 @@ namespace CreateDump
                 switch (input.CallbackType)
                 {
                     case 16: //IsProcessSnapshotCallback
-                        if (s_UseSnapShot)
+                        if (_fUseSnapShot)
                         {
                             output.Status = S_FALSE;
                         }
@@ -150,6 +156,7 @@ namespace CreateDump
                         {
                             output.Status = S_OK;
                         }
+                        Marshal.StructureToPtr<MINIDUMP_CALLBACK_OUTPUT>(output, poutput, fDeleteOld: true);
                         break;
                 }
             }
@@ -160,7 +167,7 @@ namespace CreateDump
                 switch (input.CallbackType)
                 {
                     case 16: //IsProcessSnapshotCallback
-                        if (s_UseSnapShot)
+                        if (_fUseSnapShot)
                         {
                             output.Status = S_FALSE;
                         }

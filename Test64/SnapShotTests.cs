@@ -48,6 +48,7 @@ namespace UnitTestProject1
             TestContext.WriteLine($"Got CreateDump hr = {hr}");
             VerifyDumpFile(dumpFilename);
         }
+
         [TestMethod]
         public void TestPssUseComWithCSSnapshot()
         {
@@ -83,11 +84,10 @@ namespace UnitTestProject1
                 var hr = iCreateDump.CreateDumpFromPSSSnapshot(procDevEnv.Id, hSnapshot: snapshotHandle, pathDumpFileName: dumpFilename);
                 TestContext.WriteLine($"Got CreateDump hr = {hr}");
             }
-
-
-
             VerifyDumpFile(dumpFilename);
         }
+
+
 
         private string GetDumpFileNameAndProcToDump(out Process procDevEnv)
         {
@@ -95,6 +95,7 @@ namespace UnitTestProject1
             TestContext.WriteLine($"proc {procDevEnv.MainWindowTitle}, {procDevEnv.Handle:x8}");
             var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
             dumpFilename = @"c:\t2.dmp";
+            dumpFilename = $@"c:\{TestContext.TestName}.dmp";
             File.Delete(dumpFilename);
             return dumpFilename;
         }
