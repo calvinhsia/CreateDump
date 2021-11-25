@@ -24,7 +24,6 @@ namespace CreateDump
 
             IntPtr hFile = IntPtr.Zero;
             IntPtr snapshotHandle = IntPtr.Zero;
-            IntPtr ptrCallBackInfo = IntPtr.Zero;
             try
             {
                 hFile = NativeMethods.CreateFile( // will overwrite file if exists.
@@ -55,13 +54,10 @@ namespace CreateDump
 
                 }
 
-
-                MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = new NativeMethods.MINIDUMP_EXCEPTION_INFORMATION();
+                MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = default;
                 MINIDUMP_CALLBACK_INFORMATION callbackInfo;
-                callbackInfo.CallbackParam = new IntPtr(0x1234);
+                callbackInfo.CallbackParam = IntPtr.Zero;
                 callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
-                ptrCallBackInfo = Marshal.AllocHGlobal(Marshal.SizeOf(callbackInfo));
-                Marshal.StructureToPtr(callbackInfo, ptrCallBackInfo, fDeleteOld: false);
                 if (UseSnapshot)
                 {
                     var CaptureFlags =
@@ -91,7 +87,7 @@ namespace CreateDump
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
                               UserStreamParam: IntPtr.Zero,
-                              CallbackInfo: ptrCallBackInfo
+                              ref callbackInfo
                             );
                     }
                     else
@@ -109,7 +105,7 @@ namespace CreateDump
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
                               UserStreamParam: IntPtr.Zero,
-                              CallbackInfo: ptrCallBackInfo
+                              ref callbackInfo
                         );
                 }
 
@@ -127,7 +123,6 @@ namespace CreateDump
                     PssFreeSnapshot(GetCurrentProcess(), snapshotHandle);
                 }
                 NativeMethods.CloseHandle(hFile);
-                Marshal.FreeHGlobal(ptrCallBackInfo);
             }
 
             //LoggerBase.WriteInformation("Dump collection complete.");
@@ -140,7 +135,7 @@ namespace CreateDump
                 var output = Marshal.PtrToStructure<MINIDUMP_CALLBACK_OUTPUT>(poutput);
                 switch (input.CallbackType)
                 {
-                    case 16: //IsProcessSnapshotCallback
+                    case IsProcessSnapshotCallback:
                         if (_fUseSnapShot)
                         {
                             output.Status = S_FALSE;
@@ -449,6 +444,7 @@ namespace CreateDump
             [UnmanagedFunctionPointer(CallingConvention.Winapi)]
             public delegate bool MinidumpCallbackRoutine(IntPtr CallBackParam, IntPtr pcallbackInput, IntPtr pMINIDUMP_CALLBACK_OUTPUT);
 
+            public const int IsProcessSnapshotCallback = 16;
 
             //https://msdn.microsoft.com/en-us/library/windows/desktop/ms680519%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
             [Flags]
@@ -512,7 +508,7 @@ namespace CreateDump
                     MINIDUMP_TYPE DumpType,
                     ref MINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
                     IntPtr UserStreamParam,
-                    IntPtr CallbackInfo
+                    ref MINIDUMP_CALLBACK_INFORMATION callbackinfo
                 );
 
             // I explicitly DONT caputure GetLastError information on this call because it is often used to

@@ -19,7 +19,7 @@ BOOL CALLBACK MyMiniDumpWriteDumpCallback(
 {
 	switch (CallbackInput->CallbackType)
 	{
-	case 16: // IsProcessSnapshotCallback
+	case IsProcessSnapshotCallback:
 		CallbackOutput->Status = S_FALSE;
 		break;
 	}
@@ -62,13 +62,14 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hS
 			| PSS_CAPTURE_THREADS
 			| PSS_CAPTURE_THREAD_CONTEXT
 			| PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
-			//			| PSS_CAPTURE_VA_SPACE
-						//| PSS_CAPTURE_VA_SPACE_SECTION_INFORMATION
-			| PSS_CAPTURE_IPT_TRACE
-			| PSS_CREATE_BREAKAWAY
-			| PSS_CREATE_BREAKAWAY_OPTIONAL
-			| PSS_CREATE_USE_VM_ALLOCATIONS
-			| PSS_CREATE_RELEASE_SECTION;
+			| PSS_CAPTURE_VA_SPACE
+			| PSS_CAPTURE_VA_SPACE_SECTION_INFORMATION
+			//| PSS_CAPTURE_IPT_TRACE
+			//| PSS_CREATE_BREAKAWAY
+			//| PSS_CREATE_BREAKAWAY_OPTIONAL
+			//| PSS_CREATE_USE_VM_ALLOCATIONS
+			//| PSS_CREATE_RELEASE_SECTION
+			;
 
 		MINIDUMP_CALLBACK_INFORMATION CallbackInfo = { 0 };
 		CallbackInfo.CallbackRoutine = MyMiniDumpWriteDumpCallback;
