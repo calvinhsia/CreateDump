@@ -35,6 +35,7 @@ namespace UnitTestProject1
         }
 
         [TestMethod]
+        [Ignore]
         public void TestPssUseComNoSnapshot()
         {
             if (IntPtr.Size == 4)
@@ -50,6 +51,7 @@ namespace UnitTestProject1
         }
 
         [TestMethod]
+        [Ignore]
         public void TestPssUseComWithCSSnapshot()
         {
             if (IntPtr.Size == 4)

@@ -25,7 +25,6 @@ namespace CreateDump
             IntPtr hFile = IntPtr.Zero;
             IntPtr snapshotHandle = IntPtr.Zero;
             IntPtr ptrCallBackInfo = IntPtr.Zero;
-            SafeHandlePssSnapshot safeHandlePssSnapshot = null;
             try
             {
                 hFile = NativeMethods.CreateFile( // will overwrite file if exists.
@@ -44,7 +43,6 @@ namespace CreateDump
                     Exception hresultException = Marshal.GetExceptionForHR(hresult);
                     throw hresultException;
                 }
-                GC.KeepAlive(hFile);
                 bool resultMiniDumpWriteDump = false;
                 // Ensure the dump file will contain all the info needed (full memory, handle, threads)
                 NativeMethods.MINIDUMP_TYPE dumpType = NativeMethods.MINIDUMP_TYPE.MiniDumpNormal
@@ -62,7 +60,6 @@ namespace CreateDump
                 MINIDUMP_CALLBACK_INFORMATION callbackInfo;
                 callbackInfo.CallbackParam = new IntPtr(0x1234);
                 callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
-                GC.KeepAlive(callbackInfo);
                 ptrCallBackInfo = Marshal.AllocHGlobal(Marshal.SizeOf(callbackInfo));
                 Marshal.StructureToPtr(callbackInfo, ptrCallBackInfo, fDeleteOld: false);
                 if (UseSnapshot)
@@ -84,15 +81,11 @@ namespace CreateDump
                                     | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
                     ;
                     var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
-                    //                    callbackInfo.CallbackRoutine = MinidumpCallBackForSnapshot;
-                    var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(process.Handle, ownsHandle: true);
 
-                    if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
+                    if (PssCaptureSnapshot(process.Handle, CaptureFlags, threadFlags, ref snapshotHandle) == 0)
                     {
-                        safeHandlePssSnapshot = new SafeHandlePssSnapshot(snapshotHandle);
-                        GC.KeepAlive(snapshotHandle);
                         resultMiniDumpWriteDump = MiniDumpWriteDump(
-                              hProcess: safeHandlePssSnapshot.DangerousGetHandle(),
+                              hProcess: snapshotHandle,
                               ProcessId: process.Id,
                               hFile: hFile,
                               DumpType: dumpType,
@@ -100,17 +93,15 @@ namespace CreateDump
                               UserStreamParam: IntPtr.Zero,
                               CallbackInfo: ptrCallBackInfo
                             );
-
                     }
                     else
                     {
-                        //                      TestContext.WriteLine($"Error create snapshot");
+                        int hresult = Marshal.GetHRForLastWin32Error();
+                        throw new InvalidOperationException($"Error getting Snapshot {hresult}");
                     }
-
                 }
                 else
                 {
-
                     resultMiniDumpWriteDump = NativeMethods.MiniDumpWriteDump(
                               hProcess: process.Handle,
                               ProcessId: process.Id,
@@ -120,7 +111,6 @@ namespace CreateDump
                               UserStreamParam: IntPtr.Zero,
                               CallbackInfo: ptrCallBackInfo
                         );
-
                 }
 
                 if (resultMiniDumpWriteDump == false)
@@ -132,7 +122,10 @@ namespace CreateDump
             }
             finally
             {
-                safeHandlePssSnapshot?.Dispose();
+                if (snapshotHandle != IntPtr.Zero)
+                {
+                    PssFreeSnapshot(GetCurrentProcess(), snapshotHandle);
+                }
                 NativeMethods.CloseHandle(hFile);
                 Marshal.FreeHGlobal(ptrCallBackInfo);
             }
@@ -179,25 +172,6 @@ namespace CreateDump
                 }
             }
             return true;
-        }
-        public class SafeHandlePssSnapshot : SafeHandle
-        {
-            public SafeHandlePssSnapshot() : base(INVALID_HANDLE_VALUE, ownsHandle: true)
-            {
-
-            }
-            public SafeHandlePssSnapshot(IntPtr pssSnapshotHandle) : base(INVALID_HANDLE_VALUE, ownsHandle: true)
-            {
-                this.handle = pssSnapshotHandle;
-            }
-            public override bool IsInvalid => handle == INVALID_HANDLE_VALUE;
-
-            protected override bool ReleaseHandle()
-            {
-                PssFreeSnapshot(GetCurrentProcess(), handle);
-                handle = INVALID_HANDLE_VALUE;
-                return true;
-            }
         }
         internal class NativeMethods
         {
