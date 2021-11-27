@@ -61,21 +61,20 @@ namespace CreateDump
                 if (UseSnapshot)
                 {
                     var CaptureFlags =
-                        PssCaptureFlags.PSS_CAPTURE_VA_CLONE
-                                    | PssCaptureFlags.PSS_CAPTURE_HANDLES
-                                    | PssCaptureFlags.PSS_CAPTURE_HANDLE_NAME_INFORMATION
-                                    | PssCaptureFlags.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
-                                    | PssCaptureFlags.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
-                                    | PssCaptureFlags.PSS_CAPTURE_HANDLE_TRACE
-                                    | PssCaptureFlags.PSS_CAPTURE_THREADS
-                                    | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT
-                                    | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
-                                    | PssCaptureFlags.PSS_CAPTURE_IPT_TRACE
-                                    | PssCaptureFlags.PSS_CREATE_BREAKAWAY
-                                    | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
-                                    | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
-                                    | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
-                    ;
+                           PssCaptureFlags.PSS_CAPTURE_VA_CLONE
+                        | PssCaptureFlags.PSS_CAPTURE_HANDLES
+                        | PssCaptureFlags.PSS_CAPTURE_HANDLE_NAME_INFORMATION
+                        | PssCaptureFlags.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
+                        | PssCaptureFlags.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
+                        | PssCaptureFlags.PSS_CAPTURE_HANDLE_TRACE
+                        | PssCaptureFlags.PSS_CAPTURE_THREADS
+                        | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT
+                        | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
+                        | PssCaptureFlags.PSS_CAPTURE_IPT_TRACE
+                        | PssCaptureFlags.PSS_CREATE_BREAKAWAY
+                        | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
+                        | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
+                        | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
                     var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
 
                     if (PssCaptureSnapshot(process.Handle, CaptureFlags, threadFlags, ref snapshotHandle) == 0)

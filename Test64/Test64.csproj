@@ -46,6 +46,9 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\UnitTestProject1\TestBaseClass.cs">
+      <Link>TestBaseClass.cs</Link>
+    </Compile>
     <Compile Include="CallCom.cs" />
     <Compile Include="SnapShotTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

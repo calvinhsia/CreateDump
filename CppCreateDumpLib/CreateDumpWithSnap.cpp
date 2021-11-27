@@ -80,9 +80,10 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hS
 		{
 			hSnapshot = reinterpret_cast<HPSS>(hSnapshotFromCaller);
 		}
+		auto tcontext = CONTEXT_ALL;
 		if (hSnapshotFromCaller != 0 || PssCaptureSnapshot(hDevenv,
 				CaptureFlags,
-				CONTEXT_ALL, // DWORD ThreadContextFlags
+				tcontext, // DWORD ThreadContextFlags
 				&hSnapshot
 			) == S_OK)
 		{

@@ -11,9 +11,8 @@ using Microsoft.Performance.ResponseTime;
 namespace UnitTestProject1
 {
     [TestClass]
-    public class UnitTest1
+    public class UnitTest1: TestBaseClass
     {
-        public TestContext TestContext { get; set; }
         string _tempOutputFile;
 
         string _targ32bitPWDll;
