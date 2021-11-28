@@ -158,7 +158,7 @@ namespace UnitTestProject1
                 lstLoggedStrings.Add(dt + str);
                 if (Debugger.IsAttached)
                 {
-                    Debug.WriteLine(dt + str);
+//                    Debug.WriteLine(dt + str);
                 }
                 _testcontext.WriteLine(dt + str);
                 IsInTraceListener = false;

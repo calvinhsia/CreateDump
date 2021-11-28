@@ -21,6 +21,15 @@ namespace UnitTestProject1
             MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: false);
             await VerifyDumpFileAsync(dumpFilename, startWinDbg: true);
         }
+
+        [TestMethod]
+        public async Task TestPssSnapshotJustTriageDumpWithSnapshot()
+        {
+            var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv, "2022");
+            MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: false, UseSnapshot: true);
+            await VerifyDumpFileAsync(dumpFilename, startWinDbg: true);
+        }
+
         [TestMethod]
         public async Task TestPssSnapshotJustDumpWithSnapshot()
         {
@@ -28,14 +37,6 @@ namespace UnitTestProject1
             MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: true);
             await VerifyDumpFileAsync(dumpFilename, startWinDbg: true);
         }
-        [TestMethod]
-        public async Task TestPssSnapshotJustDumpWithSnapshot32()
-        {
-            var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv, "2019");
-            MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: true);
-            await VerifyDumpFileAsync(dumpFilename, startWinDbg: true);
-        }
-
 
         [TestMethod]
         public void TestPssSnapshotTiming()
@@ -154,7 +155,7 @@ namespace UnitTestProject1
             Assert.IsTrue(File.Exists(dumpFilename), $"Dump file not found {dumpFilename}");
             var dumpSize = new FileInfo(dumpFilename).Length;
             Trace.WriteLine($"Dump Size  = {dumpSize:n0}");
-            Assert.IsTrue(dumpSize > 100000000, $"Dump file size = {dumpSize:n0}");
+            Assert.IsTrue(dumpSize > 5000000, $"Dump file size = {dumpSize:n0}");
             if (startWinDbg)
             {
                 var tmplog = Path.GetTempFileName();

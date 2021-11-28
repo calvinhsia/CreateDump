@@ -50,6 +50,7 @@
       <Link>TestBaseClass.cs</Link>
     </Compile>
     <Compile Include="CallCom.cs" />
+    <Compile Include="TestDumpReader.cs" />
     <Compile Include="SnapShotTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
