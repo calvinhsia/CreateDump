@@ -23,7 +23,7 @@ namespace Test64
         {
             await Task.Yield();
             var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
-//            var dumpfilename = @"c:\TestPssSnapshotJustDumpWithSnapshot.dmp";
+            //dumpfilename = @"c:\TestPssSnapshotJustDumpWithSnapshot.dmp";
             using (var dumpReader = new MiniDumpReader(dumpfilename))
             {
                 Trace.WriteLine($"{dumpReader._minidumpFileSize:n0} ({dumpReader._minidumpFileSize:x8})");
@@ -45,7 +45,7 @@ namespace Test64
                 Trace.WriteLine(arch);
                 foreach (var moddata in dumpReader.EnumerateModules())
                 {
-                    Trace.WriteLine($"Base={moddata.moduleInfo.BaseOfImage:x8}, {moddata.ModuleName}");
+                    //                    Trace.WriteLine($"Base={moddata.moduleInfo.BaseOfImage:x8}, {moddata.ModuleName}");
                 }
             }
         }
@@ -91,7 +91,7 @@ namespace Test64
             var intptrRetVal = IntPtr.Zero;
             ulong newBaseOffset = (loc.Rva / AllocationGranularity) * AllocationGranularity;
             var nLeftOver = loc.Rva - newBaseOffset;
-            uint MapViewSize = AllocationGranularity * 4;
+            uint mapViewSize = AllocationGranularity * 4;
             if (newBaseOffset > uint.MaxValue)
             {
                 throw new InvalidOperationException("newbase out of range");
@@ -111,16 +111,21 @@ namespace Test64
                 }
                 uint hiPart = (uint)(newBaseOffset >> 32) & uint.MaxValue;
                 uint loPart = (uint)newBaseOffset;
-                if (loc.DataSize + nLeftOver > MapViewSize)
+                if (loc.DataSize + nLeftOver > mapViewSize)
                 {
-                    MapViewSize = Math.Min((uint)(loc.DataSize + nLeftOver), (uint)_minidumpFileSize);
+                    mapViewSize = (uint)(loc.DataSize + nLeftOver);
+                }
+                if (newBaseOffset + mapViewSize >= _minidumpFileSize)
+                {
+                    mapViewSize = Math.Min((uint)(loc.DataSize + nLeftOver), (uint)_minidumpFileSize);
+                    mapViewSize = (uint)(_minidumpFileSize - newBaseOffset);
                 }
                 _mappingDataCurrent._addrFileMapping = MapViewOfFileEx(
                     _mappingDataCurrent._hFileMapping,
                     FILE_MAP_READ,
                     hiPart,
                     loPart,
-                    MapViewSize,
+                    mapViewSize,
                     preferredAddress);
                 if (_mappingDataCurrent._addrFileMapping == IntPtr.Zero)
                 {
@@ -132,7 +137,7 @@ namespace Test64
                             FILE_MAP_READ,
                             hiPart,
                             loPart,
-                            MapViewSize,
+                            mapViewSize,
                             preferredAddress);
                     }
                     if (_mappingDataCurrent._addrFileMapping == IntPtr.Zero)
@@ -142,7 +147,7 @@ namespace Test64
                     }
                 }
                 _mappingDataCurrent._mapOffset = newBaseOffset;
-                _mappingDataCurrent._mappedSize = MapViewSize;
+                _mappingDataCurrent._mappedSize = mapViewSize;
             }
             intptrRetVal = IntPtr.Add(_mappingDataCurrent._addrFileMapping, (int)(newBaseOffset - _mappingDataCurrent._mapOffset + nLeftOver)); // must fit in 32 bits!
             return intptrRetVal;
@@ -200,21 +205,25 @@ namespace Test64
                 Rva = strmDesc.Location.Rva + (uint)Marshal.SizeOf(typeof(MINIDUMP_MODULE_LIST)),
                 DataSize = (uint)nDescSize + 4
             };
-            for (uint i = modulelist.NumberOfModules-2; i < modulelist.NumberOfModules; i++)
+            Trace.WriteLine($" # Modules = {modulelist.NumberOfModules}");
+            for (uint i = 0; i < modulelist.NumberOfModules - 1; i++)
             {
-                locrva.Rva += (uint)(i * nDescSize);
+                locrva.Rva += (uint)(nDescSize);
                 var ptr = MapStream(locrva);
                 var moduleInfo = Marshal.PtrToStructure<MINIDUMP_MODULE>(ptr);
                 var moduleName = GetNameFromRva(moduleInfo.ModuleNameRva);
-                Trace.WriteLine($"  Modules {locrva}  {ptr.ToInt64():x16} ImgSz={moduleInfo.SizeOfImage:n0} Addr= {moduleInfo.BaseOfImage:x8}   {moduleName}");
+                Trace.WriteLine($"  {i,3} Modules {locrva}  {ptr.ToInt64():x16} ImgSz={moduleInfo.SizeOfImage:n0,10} Addr= {moduleInfo.BaseOfImage:x8}   {moduleName}");
                 if (moduleName.Contains("DesignTools.RuntimeHostBase."))
                 {
                     "".ToString();
                 }
-                lst.Add(new ModuleData() { ModuleName = moduleName, moduleInfo = moduleInfo });
+                var moddata = new ModuleData() { ModuleName = moduleName, moduleInfo = moduleInfo };
+                lst.Add(moddata);
+                //                Trace.WriteLine($"Base={moddata.moduleInfo.BaseOfImage:x8}, {}"); 
+                yield return moddata;
                 //                yield return new ModuleData() { ModuleName = moduleName, moduleInfo = moduleInfo };
             }
-            return lst;
+            //            return lst;
         }
 
         public string GetNameFromRva(uint moduleNameRva, uint MaxLength = 600)
@@ -224,7 +233,7 @@ namespace Test64
             {
                 var locName = MapStream(new MINIDUMP_LOCATION_DESCRIPTOR() { Rva = moduleNameRva, DataSize = MaxLength });
                 str = Marshal.PtrToStringUni(IntPtr.Add(locName, 4));// skip len
-//                Trace.WriteLine($"     Name {moduleNameRva:x8}  {locName.ToInt64():x16}  {str}");
+                                                                     //                Trace.WriteLine($"     Name {moduleNameRva:x8}  {locName.ToInt64():x16}  {str}");
             }
             return str;
         }
@@ -472,7 +481,7 @@ namespace Test64
                 public uint dwFileDateLS;
             }
 
-            [StructLayout(LayoutKind.Sequential)]
+            [StructLayout(LayoutKind.Sequential)] //, Pack = 4
             public struct MINIDUMP_MODULE
             {
                 public long BaseOfImage;
@@ -485,6 +494,25 @@ namespace Test64
                 public MINIDUMP_LOCATION_DESCRIPTOR MiscRecord;
                 public long Reserved0;
                 public long Reserved1;
+                /// <summary>
+                /// Gets TimeDateStamp as a DateTime. This is based off a 32-bit value and will overflow in 2038.
+                /// This is not the same as the timestamps on the file.
+                /// </summary>
+                public DateTime Timestamp
+                {
+                    get
+                    {
+                        // TimeDateStamp is a unix time_t structure (32-bit value).
+                        // UNIX timestamps are in seconds since January 1, 1970 UTC. It is a 32-bit number
+                        // Win32 FileTimes represents the number of 100-nanosecond intervals since January 1, 1601 UTC.
+                        // We can create a System.DateTime from a FileTime.
+                        // 
+                        // See explanation here: http://blogs.msdn.com/oldnewthing/archive/2003/09/05/54806.aspx
+                        // and here http://support.microsoft.com/default.aspx?scid=KB;en-us;q167296
+                        long win32FileTime = 10000000 * (long)TimeDateStamp + 116444736000000000;
+                        return DateTime.FromFileTimeUtc(win32FileTime);
+                    }
+                }
             }
 
             [StructLayout(LayoutKind.Sequential)]
