@@ -7,6 +7,7 @@ using System.IO;
 using static CreateDump.MemoryDumpHelper.NativeMethods;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Test64;
 
 namespace UnitTestProject1
 {
@@ -166,6 +167,10 @@ k
 ";
                 await RunWinDbgWithCmdAsync(dumpFilename, cmds, ShutDownWinDbgWhenDone: true, fIs64bit: IntPtr.Size == 8);
                 File.ReadAllLines(tmplog).ToList().ForEach((l => Trace.WriteLine(l)));
+
+                TestDumpReader.ShowMiniDumpReaderData(dumpFilename);
+
+
                 VerifyLogStrings(
                     @"
 win32u!ZwUserMsgWaitForMultipleObjectsEx+0x14 [onecoreuap\windows\core\umode\moderncore\objfre\amd64\usrstubs.asm @ 9909] 

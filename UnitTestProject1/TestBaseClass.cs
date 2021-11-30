@@ -30,7 +30,7 @@ namespace UnitTestProject1
             }
 
             Trace.Listeners.Add(myTracelistener);
-            Trace.WriteLine($"Starting test IntPtr.Size = {IntPtr.Size}");
+            Trace.WriteLine($"Starting test {TestContext.TestName} IntPtr.Size = {IntPtr.Size}");
         }
         [TestCleanup]
         public void CleanupTest()

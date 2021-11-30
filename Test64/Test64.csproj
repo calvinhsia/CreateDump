@@ -30,6 +30,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
     <RegisterForComInterop>true</RegisterForComInterop>
+    <NoWarn>MSB3391,MSB3214</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -40,6 +41,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
     <RegisterForComInterop>true</RegisterForComInterop>
+    <NoWarn>MSB3391,MSB3214</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -50,6 +52,7 @@
       <Link>TestBaseClass.cs</Link>
     </Compile>
     <Compile Include="CallCom.cs" />
+    <Compile Include="DumpUtilities.cs" />
     <Compile Include="TestDumpReader.cs" />
     <Compile Include="SnapShotTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -55,9 +55,6 @@
     <Compile Include="..\Test64\CallCom.cs">
       <Link>CallCom.cs</Link>
     </Compile>
-    <Compile Include="..\Test64\SnapShotTests.cs">
-      <Link>SnapShotTests.cs</Link>
-    </Compile>
     <Compile Include="TestBaseClass.cs" />
     <Compile Include="TestCreateAsm.cs" />
     <Compile Include="UnitTest1.cs" />
