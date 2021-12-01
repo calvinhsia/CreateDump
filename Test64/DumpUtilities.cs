@@ -164,11 +164,11 @@ namespace DumpUtilities
 
             var modulelist = Marshal.PtrToStructure<MINIDUMP_MODULE_LIST>(modListPtr);
             Trace.WriteLine($" # Modules = {modulelist.NumberOfModules}");
-            var nDescSize = Marshal.SizeOf(typeof(MINIDUMP_MODULE)) - 4;
+            var nDescSize = Marshal.SizeOf(typeof(MINIDUMP_MODULE));
             var locrva = new MINIDUMP_LOCATION_DESCRIPTOR()
             {
                 Rva = modListDir.Location.Rva + (uint)Marshal.SizeOf(typeof(MINIDUMP_MODULE_LIST)),
-                DataSize = (uint)nDescSize + 4
+                DataSize = (uint)nDescSize
             };
             for (uint i = 0; i < modulelist.NumberOfModules; i++)
             {
@@ -460,7 +460,7 @@ namespace DumpUtilities
                 public uint dwFileDateLS;
             }
 
-            [StructLayout(LayoutKind.Sequential)] //, Pack = 4
+            [StructLayout(LayoutKind.Sequential, Pack = 4)] //, Pack = 4
             public struct MINIDUMP_MODULE
             {
                 public long BaseOfImage;
