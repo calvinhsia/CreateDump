@@ -167,7 +167,7 @@ namespace CreateDump
             }
             return true;
         }
-        internal class NativeMethods
+        public class NativeMethods
         {
             [DllImport("kernel32.dll", SetLastError = true)]
             public static extern IntPtr GetCurrentProcess();
@@ -515,7 +515,7 @@ namespace CreateDump
             // in CloseHandle.  If we ever care about exact errors of CloseHandle, we can make another entry
             // point 
             [DllImport("kernel32.dll"), SuppressUnmanagedCodeSecurityAttribute]
-            internal static extern bool CloseHandle([In] IntPtr hHandle);
+            public static extern bool CloseHandle([In] IntPtr hHandle);
         }
     }
 }

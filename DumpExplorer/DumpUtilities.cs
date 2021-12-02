@@ -181,7 +181,7 @@ namespace DumpUtilities
             }
         }
 
-        internal IEnumerable<MINIDUMP_THREAD> EnumerateThreads()
+        public IEnumerable<MINIDUMP_THREAD> EnumerateThreads()
         {
             var ThdLstDir = ReadMinidumpDirectoryForStreamType(MINIDUMP_STREAM_TYPE.ThreadListStream);
             var thdlstPtr = MapRvaLocation(ThdLstDir.Location);

@@ -52,7 +52,6 @@
       <Link>TestBaseClass.cs</Link>
     </Compile>
     <Compile Include="CallCom.cs" />
-    <Compile Include="DumpUtilities.cs" />
     <Compile Include="TestDumpReader.cs" />
     <Compile Include="SnapShotTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -69,6 +68,10 @@
     <ProjectReference Include="..\CreateDump\CreateDump.csproj">
       <Project>{b6161a00-8373-4c87-8efe-17a3d1d2acf6}</Project>
       <Name>CreateDump</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DumpExplorer\DumpExplorer.csproj">
+      <Project>{0c17247d-e5d6-4c77-9248-d0f6e0b6752e}</Project>
+      <Name>DumpExplorer</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
