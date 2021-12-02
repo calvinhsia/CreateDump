@@ -1,5 +1,5 @@
 ﻿using System;
-using static DumpUtilities.DumpUtilities.NativeMethods;
+using static DumpUtilities.DumpReader.NativeMethods;
 using static CreateDump.MemoryDumpHelper.NativeMethods;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -9,14 +9,14 @@ using System.Diagnostics;
 
 namespace DumpUtilities
 {
-    public class DumpUtilities : IDisposable
+    public class DumpReader: IDisposable
     {
         private readonly IntPtr _hFileHndleMiniDump;
         public readonly string dumpfilename;
         public readonly ulong _minidumpFileSize;
         MappingData _mappingDataCurrent;
 
-        public DumpUtilities(string dumpfilename)
+        public DumpReader(string dumpfilename)
         {
             this.dumpfilename = dumpfilename;
             _hFileHndleMiniDump = CreateFile(

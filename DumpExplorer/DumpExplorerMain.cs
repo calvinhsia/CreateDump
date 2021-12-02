@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DumpUtilities;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -15,27 +16,24 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Xml;
-using static DumpUtilities.DumpUtilities.NativeMethods;
+using static DumpUtilities.DumpReader.NativeMethods;
 
 namespace DumpExplorer
 {
-    public class DumpExplorerMain: Window, INotifyPropertyChanged
+    public class DumpExplorerMain : Window, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
         void RaisePropChanged([CallerMemberName] string propName = "")
         {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propName));
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propName));
         }
         public ObservableCollection<string> lstMinidumpStreamTypes { get; set; } = new ObservableCollection<string>();
-
+        DumpReader dumpReader;
         [STAThread]
         public static void Main(string[] args)
         {
             var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
-                        
+
             var omain = new DumpExplorerMain();
             omain.ShowMiniDumpReaderData(dumpfilename);
             omain.ShowDialog();
@@ -64,11 +62,11 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
 " + xmlns + // add our xaml namespace
 @" Margin=""5,5,5,5"">
     <Grid.RowDefinitions>
-        <RowDefinition Height=""125"" />
+        <RowDefinition Height=""50"" />
         <RowDefinition/>
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
-        <ColumnDefinition Width = ""120""/>
+        <ColumnDefinition Width = ""220""/>
         <ColumnDefinition Width = ""*""/>
     </Grid.ColumnDefinitions>
     <ListView x:Name = ""lvStreamTypes"" Grid.Row = ""1"" Grid.Column = ""0"" ItemsSource = ""{Binding lstMinidumpStreamTypes}"" FontFamily=""Consolas""/>
@@ -81,14 +79,27 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
             var lvStreamTypes = (ListView)grid.FindName("lvStreamTypes");
             var dpStream = (DockPanel)grid.FindName("dpStream");
             dpStream.Children.Add(new Label() { Content = "init" });
-            lvStreamTypes.SelectionChanged += (o,e)=>
+            lvStreamTypes.SelectionChanged += (o, e) =>
             {
-                dpStream.Children.Clear();
-                dpStream.Children.Add(new Label() { Content = lvStreamTypes.SelectedItem });
+                if (lvStreamTypes.SelectedItem != null)
+                {
+                    try
+                    {
+                        if (Enum.TryParse<MINIDUMP_STREAM_TYPE>(lvStreamTypes.SelectedItem.ToString().Split()[0], out var stype))
+                        {
+                            var newui = GetContentForStreamType(stype);
+                            dpStream.Children.Clear();
+                            dpStream.Children.Add(newui);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
 
             };
             this.Content = grid;
-            using (var dumpReader = new DumpUtilities.DumpUtilities(dumpfilename))
+            using (dumpReader = new DumpReader(dumpfilename))
             {
                 Trace.WriteLine($"{dumpReader._minidumpFileSize:n0} ({dumpReader._minidumpFileSize:x8})");
                 var arch = dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
@@ -124,9 +135,45 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
             }
         }
 
-        private void LvStreamTypes_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private UIElement GetContentForStreamType(MINIDUMP_STREAM_TYPE streamType)
         {
-            throw new NotImplementedException();
+            UIElement res = null;
+            switch (streamType)
+            {
+                case MINIDUMP_STREAM_TYPE.SystemInfoStream:
+                    var arch = dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+                    res = new TextBlock() { Text = arch.ToString() };
+                    break;
+                case MINIDUMP_STREAM_TYPE.MiscInfoStream:
+                    var misc = dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+                    res = new TextBlock() { Text = misc.ToString() };
+                    break;
+                case MINIDUMP_STREAM_TYPE.ModuleListStream:
+                    {
+                        var lv = new ListView();
+                        foreach (var moddata in dumpReader.EnumerateModules())
+                        {
+                            lv.Items.Add(new TextBlock() { Text = $"ImgSz={moddata.moduleInfo.SizeOfImage,10:n0} Addr= {moddata.moduleInfo.BaseOfImage:x8}   {moddata.ModuleName}" });
+                        }
+                        res = lv;
+                    }
+                    break;
+                case MINIDUMP_STREAM_TYPE.ThreadInfoListStream:
+                    {
+                        var lv = new ListView();
+                        foreach (var threaddata in dumpReader.EnumerateThreads())
+                        {
+                            lv.Items.Add(new TextBlock() { Text = $"TID {threaddata.ThreadId:x8} SusCnt: {threaddata.SuspendCount} TEB: {threaddata.Teb:x16}  StackStart{threaddata.Stack.StartOfMemoryRange:x16} StackSize ={threaddata.Stack.MemoryLocDesc.DataSize}" });
+                        }
+                        res = lv;
+                    }
+                    break;
+            }
+            if (res == null)
+            {
+                res = new TextBlock() { Text = $" {streamType} Not implemented" };
+            }
+            return res;
         }
     }
     public class MyTreeViewBase : TreeView
@@ -178,7 +225,7 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                     {
                         var pt = e.GetPosition(tvb);
                         var elem = tvb.InputHitTest(pt);
-                        elem =MyStatics.GetAncestor<MyTreeViewItem>((DependencyObject)elem);
+                        elem = MyStatics.GetAncestor<MyTreeViewItem>((DependencyObject)elem);
                         elem.Focus();
                     }
                 }
