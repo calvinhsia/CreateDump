@@ -20,7 +20,21 @@ using static DumpUtilities.DumpReader.NativeMethods;
 
 namespace DumpExplorer
 {
-    public class DumpExplorerMain : Window, INotifyPropertyChanged
+    public class DumpExplorerMain: Window
+    {
+        [STAThread]
+        public static void Main(string[] args)
+        {
+            var omain = new DumpExplorerMain();
+            omain.ShowDialog();
+        }
+        public DumpExplorerMain()
+        {
+            var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
+            Content = new MiniDumpControl(dumpfilename);
+        }
+    }
+    public class MiniDumpControl : UserControl, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
         void RaisePropChanged([CallerMemberName] string propName = "")
@@ -29,20 +43,15 @@ namespace DumpExplorer
         }
         public ObservableCollection<string> lstMinidumpStreamTypes { get; set; } = new ObservableCollection<string>();
         DumpReader dumpReader;
-        [STAThread]
-        public static void Main(string[] args)
-        {
-            var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
+        private readonly string dumpFileName;
 
-            var omain = new DumpExplorerMain();
-            omain.ShowMiniDumpReaderData(dumpfilename);
-            omain.ShowDialog();
-        }
-        public DumpExplorerMain()
+        public MiniDumpControl(string dumpfilename)
         {
+            this.dumpFileName = dumpfilename;
             this.DataContext = this;
+            this.ShowMiniDumpReaderData();
         }
-        public void ShowMiniDumpReaderData(string dumpfilename)
+        public void ShowMiniDumpReaderData()
         {
             // Make a namespace referring to our namespace and assembly
             // using the prefix "l:"
@@ -96,10 +105,9 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                     {
                     }
                 }
-
             };
             this.Content = grid;
-            using (dumpReader = new DumpReader(dumpfilename))
+            using (dumpReader = new DumpReader(dumpFileName))
             {
                 Trace.WriteLine($"{dumpReader._minidumpFileSize:n0} ({dumpReader._minidumpFileSize:x8})");
                 var arch = dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
