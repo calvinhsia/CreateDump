@@ -764,6 +764,28 @@ namespace DumpUtilities
                 uint ProcessKernelTime;
                 public override string ToString() => $"SizeOfInfo= {SizeOfInfo} Flags1={Flags1} ProcessId={ProcessId} CreateTime={ToDateTime(ProcessCreateTime)} UserTime={ToTimeSpan(ProcessUserTime)} KernelTime= {ToTimeSpan(ProcessKernelTime)} ";
             }
+            [StructLayout(LayoutKind.Sequential)]
+            public struct _MINIDUMP_FUNCTION_TABLE_STREAM
+            {
+                public uint SizeOfInfo;
+                public uint SizeOfDescriptor;
+                public uint SizeOfNativeDescriptor;
+                public uint SizeOfFunctionEntry;
+                public uint NumberOfDescriptors;
+                public uint SizeOfAlignPad;
+            }
+            [StructLayout(LayoutKind.Sequential)]
+            public struct _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR
+            {
+                public ulong MinimumAddress;
+                public ulong MaximumAddress;
+                public ulong BaseAddress;
+                public uint EntryCount;
+                public uint SizeOfAlignPad;
+                public override string ToString() => $"MinimumAddress={MinimumAddress:x16} MaximumAddress={MaximumAddress:x16} BaseAddress={BaseAddress:x16} EntryCount={EntryCount}, SizeOfAlignPad={SizeOfAlignPad}";
+            }
+
+
             public static DateTime ToDateTime(ulong time)
             {
                 // TimeDateStamp is a unix time_t structure (32-bit value).

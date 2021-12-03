@@ -224,6 +224,16 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                         }
                     }
                     break;
+                case MINIDUMP_STREAM_TYPE.FunctionTableStream:
+                    {
+                        var lv = new ListView();
+                        foreach (var item in dumpReader.EnumerateMinidumpStreamData<_MINIDUMP_FUNCTION_TABLE_STREAM, _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.FunctionTableStream))
+                        {
+                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                        }
+                        res = lv;
+                    }
+                    break;
             }
             if (res == null)
             {
