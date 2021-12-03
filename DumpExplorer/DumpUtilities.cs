@@ -5,10 +5,11 @@ using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace DumpUtilities
 {
-    public class DumpReader: IDisposable
+    public class DumpReader : IDisposable
     {
         private readonly IntPtr _hFileHndleMiniDump;
         public readonly string dumpfilename;
@@ -129,17 +130,6 @@ namespace DumpUtilities
             }
             return dir;
         }
-        public MINIDUMP_SYSTEM_INFO GetMinidumpSystemInfo()
-        {
-            MINIDUMP_SYSTEM_INFO sysinfo = default;
-            var dir = ReadMinidumpDirectoryForStreamType(MINIDUMP_STREAM_TYPE.SystemInfoStream);
-            if (dir.Location.Rva != 0)
-            {
-                var sysInfoPtr = MapRvaLocation(dir.Location);
-                sysinfo = Marshal.PtrToStructure<MINIDUMP_SYSTEM_INFO>(sysInfoPtr);
-            }
-            return sysinfo;
-        }
         public T GetMinidumpStream<T>(MINIDUMP_STREAM_TYPE streamType)
         {
             T data = default;
@@ -151,12 +141,34 @@ namespace DumpUtilities
             }
             return data;
         }
-        public struct ModuleData
+        public IEnumerable<TData> EnumerateMinidumpStreamData<THeader,TData>(MINIDUMP_STREAM_TYPE strmType)
         {
-            public string ModuleName;
-            public MINIDUMP_MODULE moduleInfo;
+            TData entry = default;
+            var lstDir = ReadMinidumpDirectoryForStreamType(strmType);
+            if (lstDir.Location.Rva != 0)
+            {
+                var lstPtr = MapRvaLocation(lstDir.Location);
+                var lstHeader = Marshal.PtrToStructure<THeader>(lstPtr);
+                var nSize = (uint)Marshal.SizeOf(typeof(TData));
+                var locrva = new MINIDUMP_LOCATION_DESCRIPTOR()
+                {
+                    Rva = lstDir.Location.Rva + (uint)Marshal.SizeOf(typeof(THeader)),
+                    DataSize = nSize
+                };
+                // we need to get the "NumberOfEntries", "NumberOfThreads", etc... so we'll use Reflection for "NumberOf*" 
+                var typeentry = typeof(THeader).GetFields().Where(f => f.Name.StartsWith("NumberOf")).Single();
+                var numEntries = (uint)typeentry.GetValue(lstHeader);
+                for (int i = 0; i < numEntries; i++)
+                {
+                    var ptr = MapRvaLocation(locrva);
+                    entry = Marshal.PtrToStructure<TData>(ptr);
+                    locrva.Rva += (uint)nSize;
+                    yield return entry;
+                }
+            }
         }
-        public IEnumerable<ModuleData> EnumerateModules()
+
+        public IEnumerable<MINIDUMP_MODULE> EnumerateModules()
         {
             var modListDir = ReadMinidumpDirectoryForStreamType(MINIDUMP_STREAM_TYPE.ModuleListStream);
             var modListPtr = MapRvaLocation(modListDir.Location);
@@ -174,32 +186,8 @@ namespace DumpUtilities
                 var ptr = MapRvaLocation(locrva);
                 var moduleInfo = Marshal.PtrToStructure<MINIDUMP_MODULE>(ptr);
                 var moduleName = GetNameFromRva(moduleInfo.ModuleNameRva);
-                var moddata = new ModuleData() { ModuleName = moduleName, moduleInfo = moduleInfo };
                 locrva.Rva += (uint)(nDescSize);
-                yield return moddata;
-            }
-        }
-
-        public IEnumerable<MINIDUMP_THREAD> EnumerateThreads()
-        {
-            var ThdLstDir = ReadMinidumpDirectoryForStreamType(MINIDUMP_STREAM_TYPE.ThreadListStream);
-            var thdlstPtr = MapRvaLocation(ThdLstDir.Location);
-            // On x86 and X64, we have the ThreadListStream.  On IA64, we have the ThreadExListStream.
-
-            var thdlist = Marshal.PtrToStructure<MINIDUMP_THREAD_LIST>(thdlstPtr);
-            //            Trace.WriteLine($"  # Threads {thdlist.NumberOfThreads}  {thdlstPtr.ToInt64():x16}");
-            var nDescSize = Marshal.SizeOf<MINIDUMP_THREAD>() - 8;
-            var locrva = new MINIDUMP_LOCATION_DESCRIPTOR()
-            {
-                Rva = ThdLstDir.Location.Rva + (uint)Marshal.SizeOf(typeof(MINIDUMP_THREAD_LIST)),
-                DataSize = (uint)nDescSize + 4
-            };
-            for (int i = 0; i < thdlist.NumberOfThreads; i++)
-            {
-                var ptr = MapRvaLocation(locrva);
-                var thdinfo = Marshal.PtrToStructure<MINIDUMP_THREAD>(ptr);
-                locrva.Rva += (uint)(nDescSize);
-                yield return thdinfo;
+                yield return moduleInfo;
             }
         }
 
@@ -670,9 +658,26 @@ namespace DumpUtilities
             }
 
             [StructLayout(LayoutKind.Sequential)]
+            public struct MINIDUMP_UNLOADED_MODULE_LIST
+            {
+                public uint SizeOfHeader;
+                public uint SizeOfEntry;
+                public uint NumberOfEntries;
+            }
+            [StructLayout(LayoutKind.Sequential)]
+            public struct MINIDUMP_UNLOADED_MODULE
+            {
+                public ulong BaseOfImage;
+                public uint SizeOfImage;
+                public uint Checksum;
+                public uint TimeDateStamp;
+                public uint ModuleNameRva;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_THREAD_LIST
             {
-                public int NumberOfThreads;
+                public uint NumberOfThreads;
                 // MINIDUMP_THREAD Threads[]
             }
 
@@ -685,8 +690,35 @@ namespace DumpUtilities
                 public int Priority;
                 public long Teb;
                 public MINIDUMP_MEMORY_DESCRIPTOR Stack;
-                public MINIDUMP_MEMORY_DESCRIPTOR ThreadContext;
+                public MINIDUMP_LOCATION_DESCRIPTOR ThreadContext;
+                public override string ToString() => $"TID {ThreadId:x8} SusCnt: {SuspendCount} TEB: {Teb:x16}  StackStart{Stack.StartOfMemoryRange:x16} StackSize ={Stack.MemoryLocDesc.DataSize}";
             }
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct MINIDUMP_THREAD_INFO_LIST
+            {
+                public uint SizeOfHeader;
+                public uint SizeOfEntry;
+                public uint NumberOfEntries;
+                public override string ToString() => $"SizeOfHeader = {SizeOfHeader} SizeOfEntry={SizeOfEntry} NumberOfEntries={NumberOfEntries}";
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct MINIDUMP_THREAD_INFO
+            {
+                public uint ThreadId;
+                public uint DumpFlags;
+                public uint DumpError;
+                public uint ExitStatus;
+                public ulong ExitTime; //
+                public ulong CreateTime;//The time when the thread was created, in 100-nanosecond intervals since January 1, 1601
+                public ulong KernelTime;
+                public ulong UserTime;
+                public ulong StartAddress;
+                public ulong Affinity;
+                public override string ToString() => $"TID={ThreadId:x8} DumpFlags={DumpFlags} DumpError={DumpError} ExitStatus={ExitStatus} CreateTime={ToTimeSpan(CreateTime)} KernelTime= {ToTimeSpan(KernelTime)} UserTime = {ToTimeSpan(UserTime)} StartAddress={StartAddress:x16} Affinity={Affinity}";
+            }
+
 
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_HANDLE_DATA_STREAM
@@ -732,7 +764,7 @@ namespace DumpUtilities
                 uint ProcessKernelTime;
                 public override string ToString() => $"SizeOfInfo= {SizeOfInfo} Flags1={Flags1} ProcessId={ProcessId} CreateTime={ToDateTime(ProcessCreateTime)} UserTime={ToTimeSpan(ProcessUserTime)} KernelTime= {ToTimeSpan(ProcessKernelTime)} ";
             }
-            public static DateTime ToDateTime(uint time)
+            public static DateTime ToDateTime(ulong time)
             {
                 // TimeDateStamp is a unix time_t structure (32-bit value).
                 // UNIX timestamps are in seconds since January 1, 1970 UTC. It is a 32-bit number
@@ -744,7 +776,7 @@ namespace DumpUtilities
                 long win32FileTime = 10000000 * (long)time + 116444736000000000;
                 return DateTime.FromFileTimeUtc(win32FileTime);
             }
-            public static TimeSpan ToTimeSpan(uint time)
+            public static TimeSpan ToTimeSpan(ulong time)
             {
                 // TimeDateStamp is a unix time_t structure (32-bit value).
                 // UNIX timestamps are in seconds since January 1, 1970 UTC. It is a 32-bit number
