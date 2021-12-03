@@ -157,8 +157,20 @@ namespace DumpUtilities
                 };
                 // we need to get the "NumberOfEntries", "NumberOfThreads", etc... so we'll use Reflection for "NumberOf*" 
                 var typeentry = typeof(THeader).GetFields().Where(f => f.Name.StartsWith("NumberOf")).Single();
-                var numEntries = (uint)typeentry.GetValue(lstHeader);
-                for (int i = 0; i < numEntries; i++)
+                var numEntriesObj = typeentry.GetValue(lstHeader);
+                var numEntries = 0ul;
+                if (typeentry.FieldType.Name == "UInt32")
+                {
+                    numEntries = (uint)numEntriesObj;
+                }
+                else
+                {
+                    if (typeentry.FieldType.Name == "UInt64")
+                    {
+                        numEntries = (UInt64)(numEntriesObj);
+                    }
+                }
+                for (uint i = 0; i < numEntries; i++)
                 {
                     var ptr = MapRvaLocation(locrva);
                     entry = Marshal.PtrToStructure<TData>(ptr);
@@ -588,8 +600,8 @@ namespace DumpUtilities
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_MEMORY_INFO
             {
-                public long BaseAddress;
-                public long AllocationBase;
+                public ulong BaseAddress;
+                public ulong AllocationBase;
                 public uint AllocationProtect;
                 public uint __alignment1;
                 public long RegionSize;
@@ -597,6 +609,7 @@ namespace DumpUtilities
                 public uint Protect;
                 public uint Type;
                 public uint __alignment2;
+                public override string ToString() => $"BaseAddress={BaseAddress:x16} AllocationBase={AllocationBase:x16} AllocationProtect={AllocationProtect:x8} __alignment1={__alignment1} RegionSize={RegionSize:x16} State={State:x8} Protect={Protect:x8} Type={Type:x8} __alignment2={__alignment2}";
             }
 
             [StructLayout(LayoutKind.Sequential)]

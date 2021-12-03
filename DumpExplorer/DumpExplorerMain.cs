@@ -33,10 +33,15 @@ namespace DumpExplorer
         {
             var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
             dumpfilename = @"C:\TodoRajesh\Todo.exe_210806_114200.dmp";
-            Content = new MiniDumpControl(dumpfilename);
+            var ctrl = new MiniDumpControl(dumpfilename);
+            Content = ctrl;
+            this.Closing += (o, e) =>
+              {
+                  ctrl.Dispose();
+              };
         }
     }
-    public class MiniDumpControl : UserControl, INotifyPropertyChanged
+    public class MiniDumpControl : UserControl, INotifyPropertyChanged, IDisposable
     {
         public event PropertyChangedEventHandler PropertyChanged;
         void RaisePropChanged([CallerMemberName] string propName = "")
@@ -44,14 +49,16 @@ namespace DumpExplorer
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propName));
         }
         public ObservableCollection<string> lstMinidumpStreamTypes { get; set; } = new ObservableCollection<string>();
-        DumpReader dumpReader;
+        DumpReader _dumpReader;
         private readonly string dumpFileName;
 
         public MiniDumpControl(string dumpfilename)
         {
             this.dumpFileName = dumpfilename;
             this.DataContext = this;
+            _dumpReader = new DumpReader(dumpFileName);
             this.ShowMiniDumpReaderData();
+
         }
         public void ShowMiniDumpReaderData()
         {
@@ -110,41 +117,38 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 }
             };
             this.Content = grid;
-            using (dumpReader = new DumpReader(dumpFileName))
+            Trace.WriteLine($"{_dumpReader._minidumpFileSize:n0} ({_dumpReader._minidumpFileSize:x8})");
+            var arch = _dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+            Trace.WriteLine(arch);
+            var misc = _dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.MiscInfoStream);
+            Trace.WriteLine(misc);
+            var lstStreamDirs = new List<MINIDUMP_DIRECTORY>();
+            foreach (var strmtype in Enum.GetValues(typeof(MINIDUMP_STREAM_TYPE)))
             {
-                Trace.WriteLine($"{dumpReader._minidumpFileSize:n0} ({dumpReader._minidumpFileSize:x8})");
-                var arch = dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
-                Trace.WriteLine(arch);
-                var misc = dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.MiscInfoStream);
-                Trace.WriteLine(misc);
-                var lstStreamDirs = new List<MINIDUMP_DIRECTORY>();
-                foreach (var strmtype in Enum.GetValues(typeof(MINIDUMP_STREAM_TYPE)))
+                var dir = _dumpReader.ReadMinidumpDirectoryForStreamType((MINIDUMP_STREAM_TYPE)strmtype);
+                if (dir.Location.Rva != 0)
                 {
-                    var dir = dumpReader.ReadMinidumpDirectoryForStreamType((MINIDUMP_STREAM_TYPE)strmtype);
-                    if (dir.Location.Rva != 0)
-                    {
-                        lstStreamDirs.Add(dir);
-                    }
-                }
-                foreach (var dir in lstStreamDirs.OrderBy(d => d.Location.Rva))
-                {
-                    var itmstr = $"{dir.StreamType,-30} Offset={dir.Location.Rva:x8}  Sz={dir.Location.DataSize:x8} ({dir.Location.DataSize:n0})";
-                    Trace.WriteLine($"   {itmstr}");
-                    lstMinidumpStreamTypes.Add(itmstr);
-                }
-
-                int i = 0;
-                foreach (var threaddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
-                {
-                    Trace.WriteLine($" {i++,3} TID {threaddata.ThreadId:x8} SusCnt: {threaddata.SuspendCount} TEB: {threaddata.Teb:x16}  StackStart{threaddata.Stack.StartOfMemoryRange:x16} StackSize ={threaddata.Stack.MemoryLocDesc.DataSize}");
-                }
-                i = 0;
-                foreach (var moddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream))
-                {
-                    var modname = dumpReader.GetNameFromRva(moddata.ModuleNameRva);
-                    Trace.WriteLine($"  {i++,3} Modules ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modname}");
+                    lstStreamDirs.Add(dir);
                 }
             }
+            foreach (var dir in lstStreamDirs.OrderBy(d => d.Location.Rva))
+            {
+                var itmstr = $"{dir.StreamType,-30} Offset={dir.Location.Rva:x8}  Sz={dir.Location.DataSize:x8} ({dir.Location.DataSize:n0})";
+                Trace.WriteLine($"   {itmstr}");
+                lstMinidumpStreamTypes.Add(itmstr);
+            }
+
+            //int i = 0;
+            //foreach (var threaddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
+            //{
+            //    Trace.WriteLine($" {i++,3} TID {threaddata.ThreadId:x8} SusCnt: {threaddata.SuspendCount} TEB: {threaddata.Teb:x16}  StackStart{threaddata.Stack.StartOfMemoryRange:x16} StackSize ={threaddata.Stack.MemoryLocDesc.DataSize}");
+            //}
+            //i = 0;
+            //foreach (var moddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream))
+            //{
+            //    var modname = dumpReader.GetNameFromRva(moddata.ModuleNameRva);
+            //    Trace.WriteLine($"  {i++,3} Modules ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modname}");
+            //}
         }
 
         private UIElement GetContentForStreamType(MINIDUMP_STREAM_TYPE streamType)
@@ -153,19 +157,19 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
             switch (streamType)
             {
                 case MINIDUMP_STREAM_TYPE.SystemInfoStream:
-                    var arch = dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+                    var arch = _dumpReader.GetMinidumpStream<MINIDUMP_SYSTEM_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
                     res = new TextBlock() { Text = arch.ToString() };
                     break;
                 case MINIDUMP_STREAM_TYPE.MiscInfoStream:
-                    var misc = dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+                    var misc = _dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
                     res = new TextBlock() { Text = misc.ToString() };
                     break;
                 case MINIDUMP_STREAM_TYPE.ModuleListStream: // MINIDUMP_MODULE
                     {
                         var lv = new ListView();
-                        foreach (var moddata in dumpReader.EnumerateModules())
+                        foreach (var moddata in _dumpReader.EnumerateModules())
                         {
-                            var modName = dumpReader.GetNameFromRva(moddata.ModuleNameRva);
+                            var modName = _dumpReader.GetNameFromRva(moddata.ModuleNameRva);
                             lv.Items.Add(new TextBlock() { Text = $"ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modName}" });
                         }
                         res = lv;
@@ -174,9 +178,9 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 case MINIDUMP_STREAM_TYPE.UnloadedModuleListStream:
                     {
                         var lv = new ListView();
-                        foreach (var moddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_UNLOADED_MODULE_LIST, MINIDUMP_UNLOADED_MODULE>(MINIDUMP_STREAM_TYPE.UnloadedModuleListStream))
+                        foreach (var moddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_UNLOADED_MODULE_LIST, MINIDUMP_UNLOADED_MODULE>(MINIDUMP_STREAM_TYPE.UnloadedModuleListStream))
                         {
-                            var modName = dumpReader.GetNameFromRva(moddata.ModuleNameRva);
+                            var modName = _dumpReader.GetNameFromRva(moddata.ModuleNameRva);
                             lv.Items.Add(new TextBlock() { Text = $"ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modName}" });
                         }
                         res = lv;
@@ -185,7 +189,7 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 case MINIDUMP_STREAM_TYPE.ThreadListStream: // MINIDUMP_THREAD
                     {
                         var lv = new ListView();
-                        foreach (var threaddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
+                        foreach (var threaddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
                         {
                             lv.Items.Add(new TextBlock() { Text = $"{threaddata}" });
                         }
@@ -195,7 +199,7 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 case MINIDUMP_STREAM_TYPE.ThreadInfoListStream: //MINIDUMP_THREAD_INFO
                     {
                         var lv = new ListView();
-                        foreach (var threaddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream))
+                        foreach (var threaddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream))
                         {
                             lv.Items.Add(new TextBlock() { Text = $"{threaddata}" });
                         }
@@ -204,10 +208,10 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                     break;
                 case MINIDUMP_STREAM_TYPE.CommentStreamA:
                     {
-                        var dir = dumpReader.ReadMinidumpDirectoryForStreamType(streamType);
+                        var dir = _dumpReader.ReadMinidumpDirectoryForStreamType(streamType);
                         if (dir.Location.Rva != 0)
                         {
-                            var ptrData = dumpReader.MapRvaLocation(dir.Location);
+                            var ptrData = _dumpReader.MapRvaLocation(dir.Location);
                             var str = Marshal.PtrToStringAnsi(ptrData);
                             res = new TextBox() { Text = str, AcceptsReturn = true };
                         }
@@ -215,19 +219,29 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                     break;
                 case MINIDUMP_STREAM_TYPE.CommentStreamW:
                     {
-                        var dir = dumpReader.ReadMinidumpDirectoryForStreamType(streamType);
+                        var dir = _dumpReader.ReadMinidumpDirectoryForStreamType(streamType);
                         if (dir.Location.Rva != 0)
                         {
-                            var ptrData = dumpReader.MapRvaLocation(dir.Location);
+                            var ptrData = _dumpReader.MapRvaLocation(dir.Location);
                             var str = Marshal.PtrToStringUni(ptrData);
                             res = new TextBox() { Text = str, AcceptsReturn = true };
                         }
                     }
                     break;
+                case MINIDUMP_STREAM_TYPE.MemoryInfoListStream:
+                    {
+                        var lv = new ListView();
+                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MEMORY_INFO_LIST, MINIDUMP_MEMORY_INFO>(MINIDUMP_STREAM_TYPE.MemoryInfoListStream))
+                        {
+                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                        }
+                        res = lv;
+                    }
+                    break;
                 case MINIDUMP_STREAM_TYPE.FunctionTableStream:
                     {
                         var lv = new ListView();
-                        foreach (var item in dumpReader.EnumerateMinidumpStreamData<_MINIDUMP_FUNCTION_TABLE_STREAM, _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.FunctionTableStream))
+                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<_MINIDUMP_FUNCTION_TABLE_STREAM, _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.FunctionTableStream))
                         {
                             lv.Items.Add(new TextBlock() { Text = $"{item}" });
                         }
@@ -240,6 +254,11 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 res = new TextBlock() { Text = $" {streamType} Not implemented" };
             }
             return res;
+        }
+
+        public void Dispose()
+        {
+            _dumpReader?.Dispose();
         }
     }
     public class MyTreeViewBase : TreeView
