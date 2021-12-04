@@ -180,29 +180,6 @@ namespace DumpUtilities
             }
         }
 
-        public IEnumerable<MINIDUMP_MODULE> EnumerateModules()
-        {
-            var modListDir = ReadMinidumpDirectoryForStreamType(MINIDUMP_STREAM_TYPE.ModuleListStream);
-            var modListPtr = MapRvaLocation(modListDir.Location);
-
-            var modulelist = Marshal.PtrToStructure<MINIDUMP_MODULE_LIST>(modListPtr);
-            Trace.WriteLine($" # Modules = {modulelist.NumberOfModules}");
-            var nDescSize = Marshal.SizeOf(typeof(MINIDUMP_MODULE));
-            var locrva = new MINIDUMP_LOCATION_DESCRIPTOR()
-            {
-                Rva = modListDir.Location.Rva + (uint)Marshal.SizeOf(typeof(MINIDUMP_MODULE_LIST)),
-                DataSize = (uint)nDescSize
-            };
-            for (uint i = 0; i < modulelist.NumberOfModules; i++)
-            {
-                var ptr = MapRvaLocation(locrva);
-                var moduleInfo = Marshal.PtrToStructure<MINIDUMP_MODULE>(ptr);
-                var moduleName = GetNameFromRva(moduleInfo.ModuleNameRva);
-                locrva.Rva += (uint)(nDescSize);
-                yield return moduleInfo;
-            }
-        }
-
         public string GetNameFromRva(uint moduleNameRva, uint MaxLength = 600)
         {
             var str = string.Empty;
@@ -561,16 +538,17 @@ namespace DumpUtilities
             {
                 public Int64 StartOfMemoryRange;
                 public MINIDUMP_LOCATION_DESCRIPTOR MemoryLocDesc;
+                public override string ToString() => $"StartOfMemoryRange={StartOfMemoryRange:x16} DataSize={MemoryLocDesc.DataSize:x8}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_MEMORY_DESCRIPTOR64
             {
                 public Int64 StartOfMemoryRange;
                 public ulong DataSize;
-                public MINIDUMP_LOCATION_DESCRIPTOR MemoryLocDesc;
                 //'MINIDUMP_MEMORY_DESCRIPTOR64 is used for full-memory minidumps where all of the raw memory is sequential 
                 //'   at the end of the minidump. There is no need for individual relative virtual addresses (RVAs), 
                 //'   because the RVA is the base RVA plus the sum of the preceding data blocks
+                public override string ToString() => $"StartOfMemoryRange={StartOfMemoryRange:x16} DataSize={DataSize:x8}";
             }
 
             [StructLayout(LayoutKind.Sequential)]
@@ -780,7 +758,7 @@ namespace DumpUtilities
             [StructLayout(LayoutKind.Sequential)]
             public struct _MINIDUMP_FUNCTION_TABLE_STREAM
             {
-                public uint SizeOfInfo;
+                public uint SizeOfHeader;
                 public uint SizeOfDescriptor;
                 public uint SizeOfNativeDescriptor;
                 public uint SizeOfFunctionEntry;
