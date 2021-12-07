@@ -33,7 +33,7 @@ namespace DumpExplorer
         {
             var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
             //dumpfilename = @"C:\TodoRajesh\Todo.exe_210806_114200.dmp";
-            //dumpfilename = @"C:\Users\calvinh\Downloads\Project_OpenCloseSolution_Managed_Wait_29_0.dmp";
+            dumpfilename = @"C:\Users\calvinh\Downloads\Project_OpenCloseSolution_Managed_Wait_29_0.dmp";
             //dumpfilename = @"C:\VSDbgTestDumps\MSSln22611\MSSln22611.dmp";
             var ctrl = new MiniDumpControl(dumpfilename);
             Content = ctrl;
@@ -163,49 +163,48 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                     res = new TextBlock() { Text = arch.ToString() };
                     break;
                 case MINIDUMP_STREAM_TYPE.MiscInfoStream:
-                    var misc = _dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.SystemInfoStream);
+                    var misc = _dumpReader.GetMinidumpStream<_MINIDUMP_MISC_INFO>(MINIDUMP_STREAM_TYPE.MiscInfoStream);
                     res = new TextBlock() { Text = misc.ToString() };
                     break;
                 case MINIDUMP_STREAM_TYPE.ModuleListStream: // MINIDUMP_MODULE
                     {
                         var lv = new ListView();
-                        foreach (var moddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream))
-                        //foreach (var moddata in _dumpReader.EnumerateModules())
+                        _dumpReader.EnumerateStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream, item =>
                         {
-                            var modName = _dumpReader.GetNameFromRva(moddata.ModuleNameRva);
-                            lv.Items.Add(new TextBlock() { Text = $"ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modName}" });
-                        }
+                            var modName = _dumpReader.GetNameFromRva(item.ModuleNameRva);
+                            lv.Items.Add(new TextBlock() { Text = $"ImgSz={item.SizeOfImage,10:n0} Addr= {item.BaseOfImage:x8}  {item.VersionInfo.GetVersion()}  {modName}" });
+                        });
                         res = lv;
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.UnloadedModuleListStream:
                     {
                         var lv = new ListView();
-                        foreach (var moddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_UNLOADED_MODULE_LIST, MINIDUMP_UNLOADED_MODULE>(MINIDUMP_STREAM_TYPE.UnloadedModuleListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_UNLOADED_MODULE_LIST, MINIDUMP_UNLOADED_MODULE>(MINIDUMP_STREAM_TYPE.UnloadedModuleListStream, item =>
                         {
-                            var modName = _dumpReader.GetNameFromRva(moddata.ModuleNameRva);
-                            lv.Items.Add(new TextBlock() { Text = $"ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modName}" });
-                        }
+                            var modName = _dumpReader.GetNameFromRva(item.ModuleNameRva);
+                            lv.Items.Add(new TextBlock() { Text = $"ImgSz={item.SizeOfImage,10:n0} Addr= {item.BaseOfImage:x8}   {modName}" });
+                        });
                         res = lv;
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.ThreadListStream: // MINIDUMP_THREAD
                     {
                         var lv = new ListView();
-                        foreach (var threaddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream, item =>
                         {
-                            lv.Items.Add(new TextBlock() { Text = $"{threaddata}" });
-                        }
+                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                        });
                         res = lv;
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.ThreadInfoListStream: //MINIDUMP_THREAD_INFO
                     {
                         var lv = new ListView();
-                        foreach (var threaddata in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream, item =>
                         {
-                            lv.Items.Add(new TextBlock() { Text = $"{threaddata}" });
-                        }
+                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                        });
                         res = lv;
                     }
                     break;
@@ -234,40 +233,82 @@ xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
                 case MINIDUMP_STREAM_TYPE.MemoryInfoListStream: // virtualalloc info
                     {
                         var lv = new ListView();
-                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MEMORY_INFO_LIST, MINIDUMP_MEMORY_INFO>(MINIDUMP_STREAM_TYPE.MemoryInfoListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_MEMORY_INFO_LIST, MINIDUMP_MEMORY_INFO>(MINIDUMP_STREAM_TYPE.MemoryInfoListStream, item =>
                         {
                             lv.Items.Add(new TextBlock() { Text = $"{item}" });
-                        }
+                        });
                         res = lv;
+
+                        var lst = new List<MINIDUMP_MEMORY_INFO>();
+                        var brAggState = from va in lst
+                                         group va by va.State
+                                         into grp
+                                         select new
+                                         {
+                                             State = grp.Key,
+                                             Sum = grp.Sum(v => v.RegionSize),
+                                             Count = grp.Count()
+                                         };
+                        var brAggType = from va in lst
+                                        group va by va.Type
+                                        into grp
+                                        select new
+                                        {
+                                            State = grp.Key,
+                                            Sum = grp.Sum(v => v.RegionSize),
+                                            Count = grp.Count()
+                                        };
+
+
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.MemoryListStream:
                     {
                         var lv = new ListView();
-                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MEMORY_LIST, MINIDUMP_MEMORY_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.MemoryListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_MEMORY_LIST, MINIDUMP_MEMORY_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.MemoryListStream, item =>
                         {
                             lv.Items.Add(new TextBlock() { Text = $"{item}" });
-                        }
+                        });
                         res = lv;
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.Memory64ListStream:
                     {
                         var lv = new ListView();
-                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MEMORY64_LIST, MINIDUMP_MEMORY_DESCRIPTOR64>(MINIDUMP_STREAM_TYPE.Memory64ListStream))
+                        _dumpReader.EnumerateStreamData<MINIDUMP_MEMORY64_LIST, MINIDUMP_MEMORY_DESCRIPTOR64>(MINIDUMP_STREAM_TYPE.Memory64ListStream, item =>
+                         {
+                             lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                         });
+                        res = lv;
+                    }
+                    break;
+                case MINIDUMP_STREAM_TYPE.HandleDataStream:
+                    {
+                        var lv = new ListView();
+                        _dumpReader.EnumerateStreamData<MINIDUMP_HANDLE_DATA_STREAM, MINIDUMP_HANDLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.HandleDataStream, item =>
                         {
-                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
-                        }
+                            var TypeName = string.Empty;
+                            if (item.TypeNameRva != 0)
+                            {
+                                TypeName = _dumpReader.GetNameFromRva(item.TypeNameRva);
+                            }
+                            var ObjectName = string.Empty;
+                            if (item.ObjectNameRva != 0)
+                            {
+                                ObjectName = _dumpReader.GetNameFromRva(item.ObjectNameRva);
+                            }
+                            lv.Items.Add(new TextBlock() { Text = $"{item} TypeName={TypeName} ObjectName={ObjectName}" });
+                        });
                         res = lv;
                     }
                     break;
                 case MINIDUMP_STREAM_TYPE.FunctionTableStream:
                     {
                         var lv = new ListView();
-                        foreach (var item in _dumpReader.EnumerateMinidumpStreamData<_MINIDUMP_FUNCTION_TABLE_STREAM, _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.FunctionTableStream))
-                        {
-                            lv.Items.Add(new TextBlock() { Text = $"{item}" });
-                        }
+                        _dumpReader.EnumerateStreamData<_MINIDUMP_FUNCTION_TABLE_STREAM, _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR>(MINIDUMP_STREAM_TYPE.FunctionTableStream, item =>
+                         {
+                             lv.Items.Add(new TextBlock() { Text = $"{item}" });
+                         });
                         res = lv;
                     }
                     break;

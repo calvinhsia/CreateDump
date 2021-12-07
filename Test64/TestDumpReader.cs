@@ -62,15 +62,14 @@ namespace Test64
                 int i = 0;
 
 
-                foreach (var threadinfo in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream))
+                dumpReader.EnumerateStreamData<MINIDUMP_THREAD_LIST, MINIDUMP_THREAD>(MINIDUMP_STREAM_TYPE.ThreadListStream, item =>
                 {
-                    Trace.WriteLine($"{i++,3} {threadinfo.ToString()}");
-                }
-
-                foreach (var threadinfo in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream))
+                    Trace.WriteLine($"{i++,3} {item.ToString()}");
+                });
+                dumpReader.EnumerateStreamData<MINIDUMP_THREAD_INFO_LIST, MINIDUMP_THREAD_INFO>(MINIDUMP_STREAM_TYPE.ThreadInfoListStream, item =>
                 {
-                    Trace.WriteLine($" {threadinfo.ToString()}");
-                }
+                    Trace.WriteLine($" {item.ToString()}");
+                });
 
 
                 //foreach (var threaddata in dumpReader.EnumerateThreads())
@@ -78,11 +77,11 @@ namespace Test64
                 //    Trace.WriteLine($" {i++,3} TID {threaddata.ThreadId:x8} SusCnt: {threaddata.SuspendCount} TEB: {threaddata.Teb:x16}  StackStart{threaddata.Stack.StartOfMemoryRange:x16} StackSize ={threaddata.Stack.MemoryLocDesc.DataSize}");
                 //}
                 i = 0;
-                foreach (var moddata in dumpReader.EnumerateMinidumpStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream))
+                dumpReader.EnumerateStreamData<MINIDUMP_MODULE_LIST, MINIDUMP_MODULE>(MINIDUMP_STREAM_TYPE.ModuleListStream, item =>
                 {
-                    var modname = dumpReader.GetNameFromRva(moddata.ModuleNameRva);
-                    Trace.WriteLine($"  {i++,3} Modules ImgSz={moddata.SizeOfImage,10:n0} Addr= {moddata.BaseOfImage:x8}   {modname}");
-                }
+                    var modname = dumpReader.GetNameFromRva(item.ModuleNameRva);
+                    Trace.WriteLine($"  {i++,3} Modules ImgSz={item.SizeOfImage,10:n0} Addr= {item.BaseOfImage:x8}   {modname}");
+                });
             }
         }
     }

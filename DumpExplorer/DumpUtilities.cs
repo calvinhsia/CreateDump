@@ -141,15 +141,22 @@ namespace DumpUtilities
             }
             return data;
         }
-        public IEnumerable<TData> EnumerateMinidumpStreamData<THeader,TData>(MINIDUMP_STREAM_TYPE strmType)
+        public THeader EnumerateStreamData<THeader, TData>(MINIDUMP_STREAM_TYPE strmType, Action<TData> actData)
         {
             TData entry = default;
+            THeader lstHeader = default;
             var lstDir = ReadMinidumpDirectoryForStreamType(strmType);
             if (lstDir.Location.Rva != 0)
             {
                 var lstPtr = MapRvaLocation(lstDir.Location);
-                var lstHeader = Marshal.PtrToStructure<THeader>(lstPtr);
+                lstHeader = Marshal.PtrToStructure<THeader>(lstPtr);
                 var nSize = (uint)Marshal.SizeOf(typeof(TData));
+                // MINIDUMP_HANDLE_DATA_STREAM has 'SizeOfDescriptor'
+                var descSizefld = typeof(THeader).GetFields().Where(f => f.Name == "SizeOfDescriptor").SingleOrDefault();
+                if (descSizefld != null)
+                {
+                    nSize = (uint)descSizefld.GetValue(lstHeader);
+                }
                 var locrva = new MINIDUMP_LOCATION_DESCRIPTOR()
                 {
                     Rva = lstDir.Location.Rva + (uint)Marshal.SizeOf(typeof(THeader)),
@@ -174,10 +181,12 @@ namespace DumpUtilities
                 {
                     var ptr = MapRvaLocation(locrva);
                     entry = Marshal.PtrToStructure<TData>(ptr);
+                    actData(entry);
                     locrva.Rva += (uint)nSize;
-                    yield return entry;
+                    //                    yield return entry;
                 }
             }
+            return lstHeader;
         }
 
         public string GetNameFromRva(uint moduleNameRva, uint MaxLength = 600)
@@ -187,7 +196,6 @@ namespace DumpUtilities
             {
                 var locNamePtr = MapRvaLocation(new MINIDUMP_LOCATION_DESCRIPTOR() { Rva = moduleNameRva, DataSize = MaxLength });
                 str = Marshal.PtrToStringUni(IntPtr.Add(locNamePtr, 4));// skip len
-                                                                        //                Trace.WriteLine($"     Name {moduleNameRva:x8}  {locName.ToInt64():x16}  {str}");
             }
             return str;
         }
@@ -556,6 +564,7 @@ namespace DumpUtilities
             {
                 public uint NumberOfMemoryRanges;
                 // array of MINIDUMP_MEMORY_DESCRIPTOR
+                public override string ToString() => $"NumberOfMemoryRanges={NumberOfMemoryRanges}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_MEMORY64_LIST
@@ -566,6 +575,7 @@ namespace DumpUtilities
                 //            'To locate the data for a particular descriptor, start at BaseRva and increment 
                 //            '   by the size of a descriptor until you reach the descriptor.
                 //            'MINIDUMP_MEMORY_DESCRIPTOR64 MemoryRanges [0];   
+                public override string ToString() => $"NumberOfMemoryRanges={NumberOfMemoryRanges} BaseRva={BaseRva}";
             }
 
             [StructLayout(LayoutKind.Sequential)]
@@ -574,18 +584,47 @@ namespace DumpUtilities
                 public uint SizeOfHeader;
                 public uint SizeOfEntry;
                 public ulong NumberOfEntries;
+                public override string ToString() => $"NumberOfEntries={NumberOfEntries} SizeOfHeader={SizeOfHeader} SizeOfEntry={SizeOfEntry}";
+            }
+            public enum AllocationProtectEnum : uint
+            {
+                PAGE_EXECUTE = 0x00000010,
+                PAGE_EXECUTE_READ = 0x00000020,
+                PAGE_EXECUTE_READWRITE = 0x00000040,
+                PAGE_EXECUTE_WRITECOPY = 0x00000080,
+                PAGE_NOACCESS = 0x00000001,
+                PAGE_READONLY = 0x00000002,
+                PAGE_READWRITE = 0x00000004,
+                PAGE_WRITECOPY = 0x00000008,
+                PAGE_GUARD = 0x00000100,
+                PAGE_NOCACHE = 0x00000200,
+                PAGE_WRITECOMBINE = 0x00000400
+            }
+
+            public enum StateEnum : uint
+            {
+                MEM_COMMIT = 0x1000,
+                MEM_FREE = 0x10000,
+                MEM_RESERVE = 0x2000
+            }
+
+            public enum TypeEnum : uint
+            {
+                MEM_IMAGE = 0x1000000,
+                MEM_MAPPED = 0x40000,
+                MEM_PRIVATE = 0x20000
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_MEMORY_INFO
             {
                 public ulong BaseAddress;
                 public ulong AllocationBase;
-                public uint AllocationProtect;
+                public AllocationProtectEnum AllocationProtect;
                 public uint __alignment1;
                 public long RegionSize;
-                public uint State;
-                public uint Protect;
-                public uint Type;
+                public StateEnum State;
+                public AllocationProtectEnum Protect;
+                public TypeEnum Type;
                 public uint __alignment2;
                 public override string ToString() => $"BaseAddress={BaseAddress:x16} AllocationBase={AllocationBase:x16} AllocationProtect={AllocationProtect:x8} __alignment1={__alignment1} RegionSize={RegionSize:x16} State={State:x8} Protect={Protect:x8} Type={Type:x8} __alignment2={__alignment2}";
             }
@@ -595,16 +634,21 @@ namespace DumpUtilities
             {
                 public uint NumberOfModules;
                 //'MINIDUMP_MODULE Modules[];
+                public override string ToString() => $"NumberOfModules={NumberOfModules}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct VS_FIXEDFILEINFO
             {
                 public uint dwSignature;
                 public uint dwStrucVersion;
-                public uint dwFileVersionMS;
-                public uint dwFileVersionLS;
-                public uint dwProductVersionMS;
-                public uint dwProductVersionLS;
+                public ushort dwFileVersionMSLo;
+                public ushort dwFileVersionMSHi;
+                public ushort dwFileVersionLSLo;
+                public ushort dwFileVersionLSHi;
+                public ushort dwProductVersionMSLo;
+                public ushort dwProductVersionMSHi;
+                public ushort dwProductVersionLSLo;
+                public ushort dwProductVersionLSHi;
                 public uint dwFileFlagsMask;
                 public uint dwFileFlags;
                 public uint dwFileOS;
@@ -612,6 +656,7 @@ namespace DumpUtilities
                 public uint dwFileSubtype;
                 public uint dwFileDateMS;
                 public uint dwFileDateLS;
+                public string GetVersion() => $"FileVer={dwFileVersionMSHi}.{dwFileVersionMSLo}.{dwFileVersionLSHi}.{dwFileVersionLSLo} ProdVer={dwProductVersionMSHi}.{dwProductVersionMSLo}.{dwProductVersionLSHi}.{dwProductVersionLSLo}";
             }
 
             [StructLayout(LayoutKind.Sequential, Pack = 4)] //, Pack = 4
@@ -620,7 +665,7 @@ namespace DumpUtilities
                 public long BaseOfImage;
                 public uint SizeOfImage;
                 public uint CheckSum;
-                public uint TimeDateStamp;
+                public uint TimeDateStamp;//WinDbg: Timestamp:        5AD1D42D (This is a reproducible build file hash, not a timestamp)
                 public uint ModuleNameRva;
                 public VS_FIXEDFILEINFO VersionInfo;
                 public MINIDUMP_LOCATION_DESCRIPTOR CvRecord;
@@ -654,6 +699,7 @@ namespace DumpUtilities
                 public uint SizeOfHeader;
                 public uint SizeOfEntry;
                 public uint NumberOfEntries;
+                public override string ToString() => $"NumberOfEntries={NumberOfEntries} SizeOfHeader={SizeOfHeader} SizeOfEntry={SizeOfEntry}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_UNLOADED_MODULE
@@ -663,6 +709,7 @@ namespace DumpUtilities
                 public uint Checksum;
                 public uint TimeDateStamp;
                 public uint ModuleNameRva;
+                public override string ToString() => $"BaseOfImage={BaseOfImage:x16} SizeOfImage={SizeOfImage} CheckSum={Checksum} TimeDateStamp={ToDateTime(TimeDateStamp)}";
             }
 
             [StructLayout(LayoutKind.Sequential)]
@@ -670,6 +717,7 @@ namespace DumpUtilities
             {
                 public uint NumberOfThreads;
                 // MINIDUMP_THREAD Threads[]
+                public override string ToString() => $"NumberOfThreads={NumberOfThreads}";
             }
 
             [StructLayout(LayoutKind.Sequential, Pack = 0)]
@@ -679,7 +727,7 @@ namespace DumpUtilities
                 public int SuspendCount;
                 public int PriorityClass;
                 public int Priority;
-                public long Teb;
+                public ulong Teb;
                 public MINIDUMP_MEMORY_DESCRIPTOR Stack;
                 public MINIDUMP_LOCATION_DESCRIPTOR ThreadContext;
                 public override string ToString() => $"TID {ThreadId:x8} SusCnt: {SuspendCount} TEB: {Teb:x16}  StackStart{Stack.StartOfMemoryRange:x16} StackSize ={Stack.MemoryLocDesc.DataSize}";
@@ -714,21 +762,23 @@ namespace DumpUtilities
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_HANDLE_DATA_STREAM
             {
-                public int SizeOfHeader;
-                public int SizeOfDescriptor;
-                public int NumberOfDescriptors;
-                public int Reserved;
+                public uint SizeOfHeader;
+                public uint SizeOfDescriptor;
+                public uint NumberOfDescriptors;
+                public uint Reserved;
+                public override string ToString() => $"SizeOfHeader={SizeOfHeader} SizeOfDescriptor={SizeOfDescriptor} NumberOfDescriptors={NumberOfDescriptors}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_HANDLE_DESCRIPTOR
             {
-                public long Handle;
+                public ulong Handle;
                 public uint TypeNameRva;
                 public uint ObjectNameRva;
-                public int Attributes;
-                public int GrantedAccess;
-                public int HandleCount;
-                public int PointerCount;
+                public uint Attributes;
+                public uint GrantedAccess;
+                public uint HandleCount;
+                public uint PointerCount;
+                public override string ToString() => $"Handle={Handle:x16} TypeNameRva={TypeNameRva} ObjectNameRva={ObjectNameRva} Attributes={Attributes:x8} GrantedAccess={GrantedAccess} HandleCount={HandleCount} PointerCount={PointerCount}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_HANDLE_DESCRIPTOR_2
@@ -753,7 +803,7 @@ namespace DumpUtilities
                 uint ProcessCreateTime;
                 uint ProcessUserTime;
                 uint ProcessKernelTime;
-                public override string ToString() => $"SizeOfInfo= {SizeOfInfo} Flags1={Flags1} ProcessId={ProcessId} CreateTime={ToDateTime(ProcessCreateTime)} UserTime={ToTimeSpan(ProcessUserTime)} KernelTime= {ToTimeSpan(ProcessKernelTime)} ";
+                public override string ToString() => $"SizeOfInfo= {SizeOfInfo} Flags1={Flags1:x8} ProcessId={ProcessId} CreateTime={ToDateTime(ProcessCreateTime)} UserTime={ToTimeSpan(ProcessUserTime)} KernelTime={ToTimeSpan(ProcessKernelTime)} ";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct _MINIDUMP_FUNCTION_TABLE_STREAM
@@ -764,6 +814,7 @@ namespace DumpUtilities
                 public uint SizeOfFunctionEntry;
                 public uint NumberOfDescriptors;
                 public uint SizeOfAlignPad;
+                public override string ToString() => $"SizeOfHeader={SizeOfHeader} SizeOfDescriptor={SizeOfDescriptor} SizeOfNativeDescriptor={SizeOfNativeDescriptor} NumberOfDescriptors={NumberOfDescriptors} SizeOfAlignPad={SizeOfAlignPad}";
             }
             [StructLayout(LayoutKind.Sequential)]
             public struct _MINIDUMP_FUNCTION_TABLE_DESCRIPTOR

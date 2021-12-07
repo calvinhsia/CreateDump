@@ -173,11 +173,6 @@ k
 
                 VerifyLogStrings(
                     @"
-win32u!ZwUserMsgWaitForMultipleObjectsEx+0x14 [onecoreuap\windows\core\umode\moderncore\objfre\amd64\usrstubs.asm @ 9909] 
-user32!RealMsgWaitForMultipleObjectsEx+0x1e [clientcore\windows\core\ntuser\client\daytona\objfre\amd64\client.cxx @ 1726] 
-VsLog!VSResponsiveness::Detours::DetourMsgWaitForMultipleObjectsEx+0x6e [d:\dbs\sh\ddvsm\1109_220516\cmd\b\src\vscommon\TestTools\VsLog\ResponseTime\VSResponsiveness.cpp @ 868] 
-msenv!MainMessageLoop::BlockingWait+0x27 [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\main.cpp @ 2323] 
-msenv!CMsoCMHandler::EnvironmentMsgLoop+0x1fb [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\msocm.cpp @ 503] 
 msenv!CMsoCMHandler::FPushMessageLoop+0x62 [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\msocm.cpp @ 366] 
 msenv!SCM::FPushMessageLoop+0xf3 [d:\dbs\sh\ddvsm\1109_220516\cmd\1b\src\env\msenv\mso\core\cistdmgr.cpp @ 2284] 
 msenv!SCM_MsoCompMgr::FPushMessageLoop+0x3f [d:\dbs\sh\ddvsm\1109_220516\cmd\1b\src\env\msenv\mso\core\cistdmgr.cpp @ 3020] 
