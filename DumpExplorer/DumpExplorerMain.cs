@@ -34,6 +34,7 @@ namespace DumpExplorer
             var dumpfilename = @"c:\TestPssSnapshotJustTriageDumpWithSnapshot.dmp";
             //dumpfilename = @"C:\TodoRajesh\Todo.exe_210806_114200.dmp";
             dumpfilename = @"C:\Users\calvinh\Downloads\Project_OpenCloseSolution_Managed_Wait_29_0.dmp";
+            dumpfilename = @"C:\Users\calvinh\AppData\Local\Temp\cabviewer\8275a51e332743d4abc995510382e6ab\PerfWatsonHangDumpc1d80e18-ec2e-47f9-9b98-93c031c29725.dmp";
             //dumpfilename = @"C:\VSDbgTestDumps\MSSln22611\MSSln22611.dmp";
             var ctrl = new MiniDumpControl(dumpfilename);
             Content = ctrl;

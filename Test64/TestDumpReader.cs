@@ -46,14 +46,25 @@ namespace Test64
                 Trace.WriteLine(misc);
                 var lstStreamDirs = new List<MINIDUMP_DIRECTORY>();
 
-                foreach (var strmtype in Enum.GetValues(typeof(MINIDUMP_STREAM_TYPE)))
+                foreach (MINIDUMP_STREAM_TYPE strmtype in Enum.GetValues(typeof(MINIDUMP_STREAM_TYPE)))
                 {
-                    var dir = dumpReader.ReadMinidumpDirectoryForStreamType((MINIDUMP_STREAM_TYPE)strmtype);
+                    var dir = dumpReader.ReadMinidumpDirectoryForStreamType(strmtype);
                     if (dir.Location.Rva != 0)
                     {
                         lstStreamDirs.Add(dir);
+                        if (strmtype == MINIDUMP_STREAM_TYPE.CommentStreamW)
+                        {
+                            var dirComment = dumpReader.ReadMinidumpDirectoryForStreamType(strmtype);
+                            if (dirComment.Location.Rva != 0)
+                            {
+                                var ptrData = dumpReader.MapRvaLocation(dirComment.Location);
+                                var str = Marshal.PtrToStringUni(ptrData);
+                                Trace.WriteLine($"Comment: {str}");
+                            }
+                        }
                     }
                 }
+
                 foreach (var dir in lstStreamDirs.OrderBy(d => d.Location.Rva))
                 {
                     Trace.WriteLine($"   Offset={dir.Location.Rva:x8}  Sz={dir.Location.DataSize:x8}  {dir.StreamType}");

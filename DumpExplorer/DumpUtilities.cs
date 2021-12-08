@@ -128,6 +128,10 @@ namespace DumpUtilities
             {
                 dir = Marshal.PtrToStructure<MINIDUMP_DIRECTORY>(DirPtr);
             }
+            else
+            {
+                var hr = Marshal.GetHRForLastWin32Error();
+            }
             return dir;
         }
         public T GetMinidumpStream<T>(MINIDUMP_STREAM_TYPE streamType)
@@ -826,7 +830,6 @@ namespace DumpUtilities
                 public uint SizeOfAlignPad;
                 public override string ToString() => $"MinimumAddress={MinimumAddress:x16} MaximumAddress={MaximumAddress:x16} BaseAddress={BaseAddress:x16} EntryCount={EntryCount}, SizeOfAlignPad={SizeOfAlignPad}";
             }
-
 
             public static DateTime ToDateTime(ulong time)
             {
