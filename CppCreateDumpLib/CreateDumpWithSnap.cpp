@@ -50,6 +50,15 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hS
 		| MiniDumpWithFullMemory
 		| MiniDumpWithFullMemoryInfo
 		;
+	WCHAR dumpComment[1024] = L"This is a comment";
+	MINIDUMP_USER_STREAM UserStreams[1];
+	UserStreams[0].Type = CommentStreamW;
+	UserStreams[0].BufferSize = (ULONG)wcslen(dumpComment) * sizeof(WCHAR);
+	UserStreams[0].Buffer = dumpComment;
+
+	MINIDUMP_USER_STREAM_INFORMATION userStreamInfo;
+	userStreamInfo.UserStreamCount = 1;
+	userStreamInfo.UserStreamArray = UserStreams;
 
 	if (fUseSnapshot == 1)
 	{ // CxlWerHelperRoutines  https://microsoft.visualstudio.com/DefaultCollection/OS/_git/0d54b6ef-7283-444f-847a-343728d58a4d?path=%2fservercommon%2fbase%2fcluster%2fcxlrtl%2fCxlWerHelperRoutines.cpp&version=GBofficial/main
@@ -93,7 +102,7 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hS
 				hFile,
 				(MINIDUMP_TYPE)dumpFlags,
 				&excepinfo,
-				NULL, // UserStreamParam
+				&userStreamInfo, // UserStreamParam
 				&CallbackInfo// callback
 
 			))
@@ -101,7 +110,6 @@ int createdump(int pidToDump, int fUseSnapshot, LPCWSTR dumpFilePath, __int64 hS
 				auto hr = GetLastError();
 
 			}
-			auto x = 2;
 			auto res2 = CloseHandle(hFile);
 			auto res = PssFreeSnapshot(GetCurrentProcess(), hSnapshot);
 

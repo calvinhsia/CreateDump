@@ -29,18 +29,18 @@ namespace CreateDump
 
             _MINIDUMP_USER_STREAM userstream;
             userstream.Type = 11; //MINIDUMP_STREAM_TYPE.CommentStringW
-            userstream.Buffer = Marshal.StringToBSTR(commentstring);
-            userstream.BufferSize = (uint)commentstring.Length * 2;
+            userstream.Buffer = Marshal.StringToHGlobalUni(commentstring);
+            userstream.BufferSize = (uint)(commentstring.Length) * 1;
             var pUserStream = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM>());
             Marshal.StructureToPtr<_MINIDUMP_USER_STREAM>(userstream, pUserStream, fDeleteOld: false);
 
             var userstreaminfo = new _MINIDUMP_USER_STREAM_INFORMATION();
-            userstreaminfo.UserStreamCount = 1;
-            userstreaminfo.UserStream = pUserStream;
-//            userstreaminfo = null;
-            var pUserstreaminfo = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM_INFORMATION>());
-            Marshal.StructureToPtr<_MINIDUMP_USER_STREAM_INFORMATION>(userstreaminfo, pUserstreaminfo, fDeleteOld: false);
-            pUserstreaminfo = IntPtr.Zero;
+            userstreaminfo.UserStreamCount = 0;
+            userstreaminfo.UserStreamArray = pUserStream;
+            //            userstreaminfo = null;
+            //var pUserstreaminfo = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM_INFORMATION>());
+            //Marshal.StructureToPtr<_MINIDUMP_USER_STREAM_INFORMATION>(userstreaminfo, pUserstreaminfo, fDeleteOld: false);
+            //pUserstreaminfo = IntPtr.Zero;
             try
             {
                 hFile = NativeMethods.CreateFile( // will overwrite file if exists.
@@ -94,6 +94,10 @@ namespace CreateDump
                         | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
                         | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
                         | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
+                    if (fIncludeFullHeap)
+                    {
+                        CaptureFlags |= PssCaptureFlags.PSS_CAPTURE_VA_CLONE;
+                    }
                     var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
 
                     if (PssCaptureSnapshot(process.Handle, CaptureFlags, threadFlags, ref snapshotHandle) == 0)
@@ -104,7 +108,7 @@ namespace CreateDump
                               hFile: hFile,
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
-                              UserStreamParam: pUserstreaminfo,
+                              UserStreamParam: ref userstreaminfo,
                               ref callbackInfo
                             );
                     }
@@ -122,7 +126,7 @@ namespace CreateDump
                               hFile: hFile,
                               DumpType: dumpType,
                               ExceptionParam: ref exceptionInfo,
-                              UserStreamParam: pUserstreaminfo,
+                              UserStreamParam: ref userstreaminfo,
                               ref callbackInfo
                         );
                 }
@@ -137,8 +141,8 @@ namespace CreateDump
             finally
             {
                 Marshal.FreeHGlobal(pUserStream);
-                Marshal.FreeHGlobal(pUserstreaminfo);
-                Marshal.FreeBSTR(userstream.Buffer);
+//                Marshal.FreeHGlobal(pUserstreaminfo);
+                Marshal.FreeHGlobal(userstream.Buffer);
                 if (snapshotHandle != IntPtr.Zero)
                 {
                     PssFreeSnapshot(GetCurrentProcess(), snapshotHandle);
@@ -175,7 +179,7 @@ namespace CreateDump
                 var output = Marshal.PtrToStructure<MINIDUMP_CALLBACK_OUTPUT>(poutput);
                 switch (input.CallbackType)
                 {
-                    case 16: //IsProcessSnapshotCallback
+                    case IsProcessSnapshotCallback:
                         if (_fUseSnapShot)
                         {
                             output.Status = S_FALSE;
@@ -422,10 +426,10 @@ namespace CreateDump
             public static extern int PssFreeSnapshot(IntPtr ProcessHandle, IntPtr SnapshotHandle);
 
             [StructLayout(LayoutKind.Sequential)]
-            public class _MINIDUMP_USER_STREAM_INFORMATION // class so can pass null
+            public struct _MINIDUMP_USER_STREAM_INFORMATION
             {
-                public ulong UserStreamCount;
-                public IntPtr UserStream; // array of _MINIDUMP_USER_STREAM
+                public uint UserStreamCount;
+                public IntPtr UserStreamArray; // array of _MINIDUMP_USER_STREAM
                 public override string ToString() => $"UserStreamCount={UserStreamCount}";
             }
             [StructLayout(LayoutKind.Sequential)]
@@ -544,7 +548,7 @@ namespace CreateDump
                     IntPtr hFile,
                     MINIDUMP_TYPE DumpType,
                     ref MINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                    IntPtr UserStreamParam,
+                    ref _MINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
                     ref MINIDUMP_CALLBACK_INFORMATION callbackinfo
                 );
 

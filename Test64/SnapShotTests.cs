@@ -143,7 +143,7 @@ namespace UnitTestProject1
             procDevEnv = Process.GetProcessesByName("devenv").Where(p => p.MainModule.FileName.IndexOf($@"Visual Studio\{VSVersion}", StringComparison.OrdinalIgnoreCase) >= 0).First();
 //            procDevEnv = Process.GetProcessesByName("devenv").Where(p => p.MainWindowTitle.IndexOf("hWndHost", StringComparison.OrdinalIgnoreCase) >= 0).First();
 
-            Trace.WriteLine($"proc fname={procDevEnv.MainModule.FileName} {procDevEnv.MainWindowTitle}, {procDevEnv.Handle:x8}");
+            Trace.WriteLine($"proc id={procDevEnv.Id} fname={procDevEnv.MainModule.FileName} {procDevEnv.MainWindowTitle}");
             var dumpFilename = Path.ChangeExtension(Path.GetTempFileName(), "dmp");
             //            dumpFilename = @"c:\t2.dmp";
             dumpFilename = $@"c:\{TestContext.TestName}.dmp";
