@@ -23,7 +23,7 @@ namespace UnitTestProject1
             await VerifyDumpFileAsync(dumpFilename, startWinDbg: true);
         }
 
-        [TestMethod]
+        [TestMethod ]
         public async Task TestPssSnapshotJustTriageDumpWithSnapshot()
         {
             var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv, "2022");

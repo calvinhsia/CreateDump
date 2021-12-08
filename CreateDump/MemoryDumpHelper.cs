@@ -30,17 +30,17 @@ namespace CreateDump
             _MINIDUMP_USER_STREAM userstream;
             userstream.Type = 11; //MINIDUMP_STREAM_TYPE.CommentStringW
             userstream.Buffer = Marshal.StringToHGlobalUni(commentstring);
-            userstream.BufferSize = (uint)(commentstring.Length) * 1;
+            userstream.BufferSize = (uint)(commentstring.Length + 1) * 2;
             var pUserStream = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM>());
             Marshal.StructureToPtr<_MINIDUMP_USER_STREAM>(userstream, pUserStream, fDeleteOld: false);
 
             var userstreaminfo = new _MINIDUMP_USER_STREAM_INFORMATION();
-            userstreaminfo.UserStreamCount = 0;
+            userstreaminfo.UserStreamCount = 1;
             userstreaminfo.UserStreamArray = pUserStream;
-            //            userstreaminfo = null;
-            //var pUserstreaminfo = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM_INFORMATION>());
-            //Marshal.StructureToPtr<_MINIDUMP_USER_STREAM_INFORMATION>(userstreaminfo, pUserstreaminfo, fDeleteOld: false);
-            //pUserstreaminfo = IntPtr.Zero;
+            var pUserstreaminfo = Marshal.AllocHGlobal(Marshal.SizeOf<_MINIDUMP_USER_STREAM_INFORMATION>());
+            Marshal.StructureToPtr<_MINIDUMP_USER_STREAM_INFORMATION>(userstreaminfo, pUserstreaminfo, fDeleteOld: false);
+
+            var pCallbackInfo = Marshal.AllocHGlobal(Marshal.SizeOf<MINIDUMP_CALLBACK_INFORMATION>());
             try
             {
                 hFile = NativeMethods.CreateFile( // will overwrite file if exists.
@@ -71,10 +71,10 @@ namespace CreateDump
 
                 }
 
-                MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = default;
                 MINIDUMP_CALLBACK_INFORMATION callbackInfo;
                 callbackInfo.CallbackParam = IntPtr.Zero;
                 callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
+                Marshal.StructureToPtr<MINIDUMP_CALLBACK_INFORMATION>(callbackInfo, pCallbackInfo, fDeleteOld: false);
 
 
                 if (UseSnapshot)
@@ -107,9 +107,9 @@ namespace CreateDump
                               ProcessId: process.Id,
                               hFile: hFile,
                               DumpType: dumpType,
-                              ExceptionParam: ref exceptionInfo,
-                              UserStreamParam: ref userstreaminfo,
-                              ref callbackInfo
+                              ExceptionParam: IntPtr.Zero,
+                              UserStreamParam: pUserstreaminfo,
+                              pCallbackInfo
                             );
                     }
                     else
@@ -125,9 +125,9 @@ namespace CreateDump
                               ProcessId: process.Id,
                               hFile: hFile,
                               DumpType: dumpType,
-                              ExceptionParam: ref exceptionInfo,
-                              UserStreamParam: ref userstreaminfo,
-                              ref callbackInfo
+                              ExceptionParam: IntPtr.Zero,
+                              UserStreamParam: pUserstreaminfo,
+                              pCallbackInfo
                         );
                 }
 
@@ -140,8 +140,9 @@ namespace CreateDump
             }
             finally
             {
+                Marshal.FreeHGlobal(pCallbackInfo);
                 Marshal.FreeHGlobal(pUserStream);
-//                Marshal.FreeHGlobal(pUserstreaminfo);
+                Marshal.FreeHGlobal(pUserstreaminfo);
                 Marshal.FreeHGlobal(userstream.Buffer);
                 if (snapshotHandle != IntPtr.Zero)
                 {
@@ -425,7 +426,7 @@ namespace CreateDump
             [DllImport("kernel32.dll")]
             public static extern int PssFreeSnapshot(IntPtr ProcessHandle, IntPtr SnapshotHandle);
 
-            [StructLayout(LayoutKind.Sequential)]
+            [StructLayout(LayoutKind.Sequential, Pack = 4)]
             public struct _MINIDUMP_USER_STREAM_INFORMATION
             {
                 public uint UserStreamCount;
@@ -441,6 +442,7 @@ namespace CreateDump
                 public override string ToString() => $"Type={Type} BufferSize={BufferSize}";
             }
 
+            [StructLayout(LayoutKind.Sequential)]
             public struct MINIDUMP_CALLBACK_INFORMATION
             {
                 public IntPtr CallbackRoutine;
@@ -547,15 +549,11 @@ namespace CreateDump
                     int ProcessId,
                     IntPtr hFile,
                     MINIDUMP_TYPE DumpType,
-                    ref MINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                    ref _MINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-                    ref MINIDUMP_CALLBACK_INFORMATION callbackinfo
+                    IntPtr ExceptionParam,
+                    IntPtr UserStreamParam,
+                    IntPtr callbackinfo
                 );
 
-            // I explicitly DONT caputure GetLastError information on this call because it is often used to
-            // clean up and it is cleaner if GetLastError still points at the orginal error, and not the failure
-            // in CloseHandle.  If we ever care about exact errors of CloseHandle, we can make another entry
-            // point 
             [DllImport("kernel32.dll"), SuppressUnmanagedCodeSecurityAttribute]
             public static extern bool CloseHandle([In] IntPtr hHandle);
         }
