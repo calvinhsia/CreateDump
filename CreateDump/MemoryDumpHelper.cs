@@ -15,6 +15,14 @@ namespace CreateDump
     internal static class MemoryDumpHelper // note: this is called from 64 bit too so be careful about changing modifiers like internal, static
     {
         static internal bool fUseSnapshot;
+        static void DoGCs()
+        {
+            for (int i = 0; i < 100; i ++)
+            {
+                GC.Collect();
+                Marshal.CleanupUnusedObjectsInCurrentContext();
+            }
+        }
         /// <summary>
         /// Collects a mini dump (optionally with full memory) for the given process and writes it to the given file path
         /// </summary>
@@ -46,7 +54,11 @@ namespace CreateDump
                 NativeMethods.MINIDUMP_CALLBACK_INFORMATION callbackInfo;
                 callbackInfo.CallbackParam = IntPtr.Zero;
                 callbackInfo.CallbackRoutine = Marshal.GetFunctionPointerForDelegate<NativeMethods.MinidumpCallbackRoutine>(MinidumpCallBackForSnapshot);
+//                callbackInfo.CallbackRoutine = new IntPtr(100);
+                DoGCs();
+
                 Marshal.StructureToPtr<NativeMethods.MINIDUMP_CALLBACK_INFORMATION>(callbackInfo, pCallbackInfo, fDeleteOld: false);
+                DoGCs();
 
                 IntPtr cloneHandle = IntPtr.Zero;
                 NativeMethods.PSS_CAPTURE_FLAGS CaptureFlags = NativeMethods.PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLES
@@ -70,7 +82,7 @@ namespace CreateDump
                 var threadFlags = (int)NativeMethods.CONTEXT.CONTEXT_ALL;
 
                 hr = NativeMethods.PssCaptureSnapshot(process.Handle, CaptureFlags, threadFlags, out snapshotHandle);
-//                hr = NativeMethods.PssCaptureSnapshot(process.Handle, CaptureFlags, IntPtr.Size == 8 ? 0x0010001F : 0x0001003F, out snapshotHandle);
+//                hr = NativeMethods.PssCaptureSnapshot(process.Handle, CaptureFlags, IntPtr.Size == 8 ? 0x00nGCs001F : 0x000nGCs03F, out snapshotHandle);
                 if (hr != 0)
                 {
                     Trace.WriteLine($"Could not create snapshot to process. Error {hr}.");
@@ -79,7 +91,8 @@ namespace CreateDump
 
                 processHandle = snapshotHandle;
             }
-//            for (int i = 0; i < 10; i++) GC.Collect();
+            DoGCs();
+
             IntPtr hFile = IntPtr.Zero;
             try
             {
@@ -117,6 +130,8 @@ namespace CreateDump
                     throw new InvalidOperationException($"The Handle is invalid. UseSnapshot = {UseSnapshot}");
                 }
                 NativeMethods.MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = new NativeMethods.MINIDUMP_EXCEPTION_INFORMATION();
+
+                DoGCs();
 
                 bool result = NativeMethods.MiniDumpWriteDump(
                           hProcess: processHandle,

@@ -88,10 +88,28 @@ namespace UnitTestProject1
             await Task.Yield();
             var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv);
             var nIter = 40;
-            for (int i = 0; i < nIter; i++)
+            var IsDone = false;
+            var taskGCs = Task.Run(async () =>
             {
-                Trace.WriteLine($"Taking dump {i}");
-                MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: false, UseSnapshot: true);
+                while (!IsDone)
+                {
+                    GC.Collect();
+                    await Task.Delay(TimeSpan.FromMilliseconds(10));
+                }
+            });
+            try
+            {
+                for (int i = 0; i < nIter; i++)
+                {
+                    Trace.WriteLine($"Taking dump {i}");
+                    MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: true, UseSnapshot: true);
+                    Assert.IsTrue(File.Exists(dumpFilename), "dump not found");
+                    File.Delete(dumpFilename);
+                }
+            }
+            finally
+            {
+                IsDone = true;
             }
         }
 
@@ -185,19 +203,24 @@ k
 
                 VerifyLogStrings(
                     @"
-msenv!CMsoCMHandler::FPushMessageLoop+0x62 [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\msocm.cpp @ 366] 
-msenv!SCM::FPushMessageLoop+0xf3 [d:\dbs\sh\ddvsm\1109_220516\cmd\1b\src\env\msenv\mso\core\cistdmgr.cpp @ 2284] 
-msenv!SCM_MsoCompMgr::FPushMessageLoop+0x3f [d:\dbs\sh\ddvsm\1109_220516\cmd\1b\src\env\msenv\mso\core\cistdmgr.cpp @ 3020] 
-msenv!CMsoComponent::PushMsgLoop+0x3d [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\msocm.cpp @ 714] 
-msenv!VStudioMainLogged+0x723 [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\main.cpp @ 1479] 
-msenv!VStudioMain+0xc8 [d:\dbs\sh\ddvsm\1109_220516\cmd\r\src\env\msenv\core\main.cpp @ 1877] 
-devenv!util_CallVsMain+0x5c [d:\dbs\sh\ddvsm\1109_220516\cmd\1x\src\appid\lib\utils.cpp @ 1172] 
-devenv!CDevEnvAppId::Run+0x2265 [Q:\src\appid\devenv\stub\devenv.cpp @ 1022] 
-devenv!WinMain+0xd5 [Q:\src\appid\devenv\stub\winmain.cpp @ 70] 
-devenv!invoke_main+0x21 [D:\agent\_work\10\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 102] 
-devenv!__scrt_common_main_seh+0x106 [D:\agent\_work\10\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288] 
-kernel32!BaseThreadInitThunk+0x10 [clientcore\base\win32\client\thread.c @ 75] 
-ntdll!RtlUserThreadStart+0x2b [minkernel\ntdll\rtlstrt.c @ 1152] 
+00 000000a9`10f4eed8 00007ff9`4ee0d20e     win32u!ZwUserMsgWaitForMultipleObjectsEx+0x14 [onecoreuap\windows\core\umode\moderncore\objfre\amd64\usrstubs.asm @ 9909] 
+01 000000a9`10f4eee0 00007ff8`e723149e     user32!RealMsgWaitForMultipleObjectsEx+0x1e [clientcore\windows\core\ntuser\client\daytona\objfre\amd64\client.cxx @ 1726] 
+02 000000a9`10f4ef20 00007ff8`e4cdb07e     VsLog!VSResponsiveness::Detours::DetourMsgWaitForMultipleObjectsEx+0x6e [D:\dbs\sh\ddvsm\0626_160812\cmd\k\src\vscommon\testtools\vslog\ResponseTime\VSResponsiveness.cpp @ 960] 
+03 (Inline Function) --------`--------     msenv!MainMessageLoop::BlockingWait+0x27 [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\main.cpp @ 2346] 
+04 000000a9`10f4ef60 00007ff8`e4c79fa5     msenv!CMsoCMHandler::EnvironmentMsgLoop+0x1fa [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\msocm.cpp @ 503] 
+05 000000a9`10f4efe0 00007ff8`e4c7a285     msenv!CMsoCMHandler::FPushMessageLoop+0x65 [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\msocm.cpp @ 366] 
+06 000000a9`10f4f040 00007ff8`e4c7a15f     msenv!SCM::FPushMessageLoop+0xf5 [D:\dbs\sh\ddvsm\0624_220840\cmd\4\src\env\msenv\mso\core\cistdmgr.cpp @ 2284] 
+07 000000a9`10f4f0b0 00007ff8`e4c7a105     msenv!SCM_MsoCompMgr::FPushMessageLoop+0x3f [D:\dbs\sh\ddvsm\0624_220840\cmd\4\src\env\msenv\mso\core\cistdmgr.cpp @ 3020] 
+08 000000a9`10f4f0e0 00007ff8`e4c79e2a     msenv!CMsoComponent::PushMsgLoop+0x3d [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\msocm.cpp @ 714] 
+09 000000a9`10f4f110 00007ff8`e4cc7788     msenv!VStudioMainLogged+0x8fe [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\main.cpp @ 1503] 
+0a 000000a9`10f4f230 00007ff6`17b3d5e4     msenv!VStudioMain+0xc8 [D:\dbs\sh\ddvsm\0626_220631\cmd\1b\src\env\msenv\core\main.cpp @ 1901] 
+0b 000000a9`10f4f260 00007ff6`17b387c0     devenv!util_CallVsMain+0x5c [D:\dbs\sh\ddvsm\0624_220840\cmd\a\src\appid\lib\utils.cpp @ 1172] 
+0c 000000a9`10f4f290 00007ff6`17b32fd0     devenv!CDevEnvAppId::Run+0x226c [Q:\src\appid\devenv\stub\devenv.cpp @ 1021] 
+0d 000000a9`10f4fa60 00007ff6`17b80b0a     devenv!WinMain+0xd0 [Q:\src\appid\devenv\stub\winmain.cpp @ 70] 
+0e (Inline Function) --------`--------     devenv!invoke_main+0x21 [d:\a01\_work\3\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 102] 
+0f 000000a9`10f4fad0 00007ff9`4e4554e0     devenv!__scrt_common_main_seh+0x106 [d:\a01\_work\3\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288] 
+10 000000a9`10f4fb10 00007ff9`4f5a485b     kernel32!BaseThreadInitThunk+0x10 [clientcore\base\win32\client\thread.c @ 75] 
+11 000000a9`10f4fb40 00000000`00000000     ntdll!RtlUserThreadStart+0x2b [minkernel\ntdll\rtlstrt.c @ 1152] 
 ");
             }
         }
