@@ -49,21 +49,21 @@ namespace UnitTestProject1
             var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv);
 
             var CaptureFlags =
-                   PssCaptureFlags.PSS_CAPTURE_VA_CLONE
-                | PssCaptureFlags.PSS_CAPTURE_HANDLES
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_NAME_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_TRACE
-                | PssCaptureFlags.PSS_CAPTURE_THREADS
-                | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT
-                | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
-                | PssCaptureFlags.PSS_CAPTURE_IPT_TRACE
-                | PssCaptureFlags.PSS_CREATE_BREAKAWAY
-                | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
-                | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
-                | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION
-                | PssCaptureFlags.PSS_CREATE_MEASURE_PERFORMANCE
+                   PSS_CAPTURE_FLAGS.PSS_CAPTURE_VA_CLONE
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLES
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_NAME_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_TRACE
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREADS
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREAD_CONTEXT
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_IPT_TRACE
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_BREAKAWAY
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_BREAKAWAY_OPTIONAL
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_USE_VM_ALLOCATIONS
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_RELEASE_SECTION
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_MEASURE_PERFORMANCE
                 ;
             ;
             var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
@@ -74,13 +74,25 @@ namespace UnitTestProject1
             for (int i = 0; i < nIter; i++)
             {
                 IntPtr snapshotHandle = IntPtr.Zero;
-                if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
+                if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, (int)threadFlags, out snapshotHandle) == 0)
                 {
                     lst.Add(snapshotHandle);
                 }
             }
             Trace.WriteLine($"done #iter ={nIter} {sw.Elapsed.TotalSeconds:n0} secs   Secs/iter = {sw.Elapsed.TotalSeconds / nIter:n2}");
             lst.ForEach(s => PssFreeSnapshot(GetCurrentProcess(), s));
+        }
+        [TestMethod]
+        public async Task TestManySnapshotDumps()
+        {
+            await Task.Yield();
+            var dumpFilename = GetDumpFileNameAndProcToDump(out var procDevEnv);
+            var nIter = 40;
+            for (int i = 0; i < nIter; i++)
+            {
+                Trace.WriteLine($"Taking dump {i}");
+                MemoryDumpHelper.CollectDump(procDevEnv.Id, dumpFilename, fIncludeFullHeap: false, UseSnapshot: true);
+            }
         }
 
         [TestMethod]
@@ -112,25 +124,25 @@ namespace UnitTestProject1
             var iCreateDump = ocomcall.GetInterfaceICreateDump();
 
             var CaptureFlags =
-                   PssCaptureFlags.PSS_CAPTURE_VA_CLONE
-                | PssCaptureFlags.PSS_CAPTURE_HANDLES
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_NAME_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
-                | PssCaptureFlags.PSS_CAPTURE_HANDLE_TRACE
-                | PssCaptureFlags.PSS_CAPTURE_THREADS
-                | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT
-                | PssCaptureFlags.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
-                | PssCaptureFlags.PSS_CAPTURE_IPT_TRACE
-                | PssCaptureFlags.PSS_CREATE_BREAKAWAY
-                | PssCaptureFlags.PSS_CREATE_BREAKAWAY_OPTIONAL
-                | PssCaptureFlags.PSS_CREATE_USE_VM_ALLOCATIONS
-                | PssCaptureFlags.PSS_CREATE_RELEASE_SECTION;
+                   PSS_CAPTURE_FLAGS.PSS_CAPTURE_VA_CLONE
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLES
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_NAME_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_BASIC_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_HANDLE_TRACE
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREADS
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREAD_CONTEXT
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED
+                | PSS_CAPTURE_FLAGS.PSS_CAPTURE_IPT_TRACE
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_BREAKAWAY
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_BREAKAWAY_OPTIONAL
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_USE_VM_ALLOCATIONS
+                | PSS_CAPTURE_FLAGS.PSS_CREATE_RELEASE_SECTION;
             ;
             var threadFlags = (uint)CONTEXT.CONTEXT_ALL;
             IntPtr snapshotHandle = IntPtr.Zero;
             var safephandle = new Microsoft.Win32.SafeHandles.SafeProcessHandle(procDevEnv.Handle, ownsHandle: true);
-            if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, threadFlags, ref snapshotHandle) == 0)
+            if (PssCaptureSnapshot(safephandle.DangerousGetHandle(), CaptureFlags, (int)threadFlags, out snapshotHandle) == 0)
             {
                 var hr = iCreateDump.CreateDumpFromPSSSnapshot(procDevEnv.Id, hSnapshot: snapshotHandle, pathDumpFileName: dumpFilename);
                 Trace.WriteLine($"Got CreateDump hr = {hr}");
